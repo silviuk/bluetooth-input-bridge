@@ -1,0 +1,16 @@
+# Build artifacts and intermediate files
+*.o
+*.obj
+*.res
+*.pyc
+__pycache__/
+
+# Android build directory
+android/build/
+
+# Temporary / OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+*~
