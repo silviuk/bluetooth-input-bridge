@@ -16,6 +16,10 @@ echo "=== 2. Linking Resources and Generating R.java ==="
 "${SDK_BUILD_TOOLS}/aapt2" link \
     -I "${ANDROID_JAR}" \
     --manifest "${BASE_DIR}/app/src/main/AndroidManifest.xml" \
+    --min-sdk-version 26 \
+    --target-sdk-version 34 \
+    --version-code 1 \
+    --version-name "0.1.0" \
     --java "${BUILD_DIR}/gen" \
     -o "${BUILD_DIR}/unaligned.apk" \
     "${BUILD_DIR}/compiled_res.zip"
@@ -60,6 +64,9 @@ fi
     --ks-pass pass:android \
     --ks-key-alias androiddebugkey \
     --key-pass pass:android \
+    --v1-signing-enabled true \
+    --v2-signing-enabled true \
+    --v3-signing-enabled true \
     --out "${BIN_DIR}/S24InputBridge.apk" \
     "${BIN_DIR}/S24InputBridge-unsigned.apk"
 

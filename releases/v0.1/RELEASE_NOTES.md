@@ -13,8 +13,8 @@ Strictly communicates over **Bluetooth RFCOMM** with **zero Wi-Fi networking req
 | :--- | :--- | :--- | :--- |
 | **`BluetoothInputBridge-Setup.exe`** | Windows Setup Installer (NSIS) | ~216 KB | `95c5830119dcee22707863904802d7afe0f54b9f2e5b282bb5644a7f39c56c3d` |
 | **`BluetoothInputBridge.exe`** | Standalone Native Executable | ~214 KB | `39c08b7392bf570f559e9d4c33139931aebde01275dc6dc2782f110c309e9c1d` |
-| **`S24InputBridge.apk`** | Signed Android Application (v1/v2/v3) | ~34 KB | `d6eb6646d1b23ed5cd2dd5a8533b45eb865f4d743d82d891f67f7578b61a1cc5` |
-| **`BluetoothInputBridge-v0.1.zip`** | All-in-one ZIP Archive | ~254 KB | `311c5a8eb8de6fd3c73dfd9e4e9c94f9ace4c846055a7c8c591ba39bf6d87baa` |
+| **`S24InputBridge.apk`** | Signed Android Application (v2/v3) | ~29 KB | `fb40249d3a5e677eced22168f72cc95a75465dfff9763dc8ed8c0a26bf14026a` |
+| **`BluetoothInputBridge-v0.1.zip`** | All-in-one ZIP Archive | ~250 KB | `4708ea78d44a1d8e40170c8902928308be2ec3105b0aa8b013c7c79d63d953fa` |
 
 ---
 
