@@ -208,6 +208,10 @@ bool MainWindow::Create() {
 
     if (!m_hWnd) return false;
 
+    // Set large and small window icons
+    if (m_hAppIcon) SendMessageW(m_hWnd, WM_SETICON, ICON_BIG, (LPARAM)m_hAppIcon);
+    if (m_hTrayIcon) SendMessageW(m_hWnd, WM_SETICON, ICON_SMALL, (LPARAM)m_hTrayIcon);
+
     // Register logger target window
     Logger::Instance().SetHwnd(m_hWnd);
     LOG_INFO(L"App", L"Lapdroid Windows v0.3.0 initialized");
