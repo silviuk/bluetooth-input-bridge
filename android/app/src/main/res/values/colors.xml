@@ -1,12 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#7AA2F7</color>
-    <color name="primary_dark">#1A1B26</color>
-    <color name="accent">#BB9AF7</color>
-    <color name="background">#16161E</color>
-    <color name="card_bg">#1F2335</color>
-    <color name="text_primary">#C0CAF5</color>
-    <color name="text_secondary">#7A88CF</color>
-    <color name="status_green">#9ECE6A</color>
-    <color name="status_red">#F7768E</color>
+    <!-- Light Mode Colors -->
+    <color name="primary">#2563EB</color>
+    <color name="primary_dark">#1D4ED8</color>
+    <color name="accent">#7C3AED</color>
+    <color name="background">#F1F5F9</color>
+    <color name="card_bg">#FFFFFF</color>
+    <color name="card_stroke">#CBD5E1</color>
+    <color name="tab_bg">#E2E8F0</color>
+    <color name="text_primary">#0F172A</color>
+    <color name="text_secondary">#475569</color>
+    <color name="text_muted">#64748B</color>
+    <color name="status_green">#16A34A</color>
+    <color name="status_red">#DC2626</color>
+    <color name="status_orange">#D97706</color>
+    <color name="terminal_bg">#0F172A</color>
+    <color name="terminal_text">#4ADE80</color>
+    <color name="divider">#E2E8F0</color>
 </resources>

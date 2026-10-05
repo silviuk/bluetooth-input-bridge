@@ -39,6 +39,8 @@ public class BluetoothBridgeService extends Service {
     private CursorOverlayView mCursorOverlay;
 
     private boolean mIsConnected = false;
+    private boolean mIsRunning = false;
+    private String mConnectedDeviceName = null;
     private boolean mIsServerMode = true;
     private StatusListener mStatusListener;
 
@@ -50,6 +52,14 @@ public class BluetoothBridgeService extends Service {
 
     public boolean isConnected() {
         return mIsConnected;
+    }
+
+    public boolean isRunning() {
+        return mIsRunning;
+    }
+
+    public String getConnectedDeviceName() {
+        return mConnectedDeviceName;
     }
 
     public boolean sendStylusEvent(byte action, byte flags, int normX, int normY, int pressure, int tiltX, int tiltY) {
@@ -87,8 +97,9 @@ public class BluetoothBridgeService extends Service {
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         createNotificationChannel();
 
+        mIsRunning = true;
         try {
-            Notification notification = buildNotification("Lapdroid active");
+            Notification notification = buildNotification("Listening for Windows PC...");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
             } else {
@@ -107,20 +118,25 @@ public class BluetoothBridgeService extends Service {
     public static final String ACTION_START = "com.antigravity.btbridge.ACTION_START";
     public static final String ACTION_STOP = "com.antigravity.btbridge.ACTION_STOP";
     public static final String ACTION_RESTART = "com.antigravity.btbridge.ACTION_RESTART";
+    public static final String ACTION_EXIT = "com.antigravity.btbridge.ACTION_EXIT";
+    public static final String ACTION_EXIT_APP = "com.antigravity.btbridge.ACTION_EXIT_APP";
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && intent.getAction() != null) {
             String action = intent.getAction();
             if (ACTION_STOP.equals(action)) {
-                stopServiceInternal();
-                return START_NOT_STICKY;
+                pauseBridge();
+                return START_STICKY;
             } else if (ACTION_RESTART.equals(action)) {
-                startServer();
+                restartBridge();
                 return START_STICKY;
             } else if (ACTION_START.equals(action)) {
-                startServer();
+                resumeBridge();
                 return START_STICKY;
+            } else if (ACTION_EXIT.equals(action)) {
+                exitApplication();
+                return START_NOT_STICKY;
             }
         }
         return START_STICKY;
@@ -131,13 +147,14 @@ public class BluetoothBridgeService extends Service {
             mConnectedThread.cancel();
             mConnectedThread = null;
         }
+        mConnectedDeviceName = null;
         mIsConnected = false;
         notifyStatus("Disconnected", false);
         AppLogger.i("BT-Bridge", "Disconnected from remote device");
     }
 
-    public synchronized void stopServiceInternal() {
-        AppLogger.i("BT-Bridge", "Stopping service completely");
+    public synchronized void pauseBridge() {
+        AppLogger.i("BT-Bridge", "Pausing bridge (not running)");
         disconnect();
         if (mAcceptThread != null) {
             mAcceptThread.cancel();
@@ -146,10 +163,47 @@ public class BluetoothBridgeService extends Service {
         if (mCursorOverlay != null) {
             mCursorOverlay.hide();
         }
+        mIsRunning = false;
+        notifyStatus("Stopped", false);
+    }
+
+    public synchronized void resumeBridge() {
+        AppLogger.i("BT-Bridge", "Resuming bridge");
+        mIsRunning = true;
+        if (mIsServerMode) {
+            startServer();
+        } else {
+            notifyStatus("Ready to connect (Client mode)", false);
+        }
+    }
+
+    public synchronized void restartBridge() {
+        AppLogger.i("BT-Bridge", "Restarting bridge");
+        pauseBridge();
+        resumeBridge();
+    }
+
+    public synchronized void exitApplication() {
+        AppLogger.i("BT-Bridge", "Exiting application completely");
+        disconnect();
+        if (mAcceptThread != null) {
+            mAcceptThread.cancel();
+            mAcceptThread = null;
+        }
+        if (mCursorOverlay != null) {
+            mCursorOverlay.hide();
+        }
+        mIsRunning = false;
         mIsConnected = false;
-        notifyStatus("Service Stopped", false);
         stopForeground(true);
         stopSelf();
+        try {
+            sendBroadcast(new Intent(ACTION_EXIT_APP));
+        } catch (Exception ignored) {}
+    }
+
+    public synchronized void stopServiceInternal() {
+        exitApplication();
     }
 
     @Override
@@ -174,6 +228,7 @@ public class BluetoothBridgeService extends Service {
     }
 
     public synchronized void startServer() {
+        mIsRunning = true;
         if (mConnectedThread != null) {
             mConnectedThread.cancel();
             mConnectedThread = null;
@@ -220,6 +275,7 @@ public class BluetoothBridgeService extends Service {
             return;
         }
 
+        mIsRunning = true;
         if (mConnectedThread != null) {
             mConnectedThread.cancel();
             mConnectedThread = null;
@@ -290,7 +346,22 @@ public class BluetoothBridgeService extends Service {
         AppLogger.i("BT-Bridge", "Managing active socket connection, starting ConnectedThread");
         mConnectedThread = new ConnectedThread(socket);
         mConnectedThread.start();
-        notifyStatus("Connected to Windows PC", true);
+        mIsRunning = true;
+
+        String pcName = "Windows PC";
+        BluetoothDevice dev = socket.getRemoteDevice();
+        if (dev != null) {
+            try {
+                String n = dev.getName();
+                if (n != null && !n.trim().isEmpty()) {
+                    pcName = n.trim();
+                } else {
+                    pcName = dev.getAddress();
+                }
+            } catch (SecurityException ignored) {}
+        }
+        mConnectedDeviceName = pcName;
+        notifyStatus("Connected to " + mConnectedDeviceName, true);
     }
 
     private class AcceptThread extends Thread {
@@ -628,9 +699,9 @@ public class BluetoothBridgeService extends Service {
         PendingIntent openPi = PendingIntent.getActivity(this, 1, openIntent,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
-        Intent restartIntent = new Intent(this, BluetoothBridgeService.class);
-        restartIntent.setAction(ACTION_RESTART);
-        PendingIntent restartPi = PendingIntent.getService(this, 2, restartIntent,
+        Intent startIntent = new Intent(this, BluetoothBridgeService.class);
+        startIntent.setAction(ACTION_START);
+        PendingIntent startPi = PendingIntent.getService(this, 2, startIntent,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
         Intent stopIntent = new Intent(this, BluetoothBridgeService.class);
@@ -638,20 +709,47 @@ public class BluetoothBridgeService extends Service {
         PendingIntent stopPi = PendingIntent.getService(this, 3, stopIntent,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
+        Intent restartIntent = new Intent(this, BluetoothBridgeService.class);
+        restartIntent.setAction(ACTION_RESTART);
+        PendingIntent restartPi = PendingIntent.getService(this, 4, restartIntent,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        Intent exitIntent = new Intent(this, BluetoothBridgeService.class);
+        exitIntent.setAction(ACTION_EXIT);
+        PendingIntent exitPi = PendingIntent.getService(this, 5, exitIntent,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
         Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? new Notification.Builder(this, CHANNEL_ID)
                 : new Notification.Builder(this);
 
-        builder.setContentTitle("Lapdroid")
+        String title;
+        if (mIsConnected && mConnectedDeviceName != null && !mConnectedDeviceName.isEmpty()) {
+            title = "Connected to " + mConnectedDeviceName;
+        } else if (mIsRunning) {
+            title = "Lapdroid (Listening for PC)";
+        } else {
+            title = "Lapdroid (Stopped)";
+        }
+
+        builder.setContentTitle(title)
                 .setContentText(text)
                 .setSmallIcon(R.drawable.ic_launcher)
                 .setContentIntent(openPi)
-                .setOngoing(true);
+                .setOngoing(mIsRunning);
 
         Icon actionIcon = Icon.createWithResource(this, R.drawable.ic_launcher);
-        builder.addAction(new Notification.Action.Builder(actionIcon, "Open", openPi).build());
-        builder.addAction(new Notification.Action.Builder(actionIcon, "Restart", restartPi).build());
-        builder.addAction(new Notification.Action.Builder(actionIcon, "Stop", stopPi).build());
+
+        if (mIsRunning) {
+            // When running: Stop button, Restart button, Exit button
+            builder.addAction(new Notification.Action.Builder(actionIcon, "Stop", stopPi).build());
+            builder.addAction(new Notification.Action.Builder(actionIcon, "Restart", restartPi).build());
+            builder.addAction(new Notification.Action.Builder(actionIcon, "Exit", exitPi).build());
+        } else {
+            // When not running: Start button and Exit button
+            builder.addAction(new Notification.Action.Builder(actionIcon, "Start", startPi).build());
+            builder.addAction(new Notification.Action.Builder(actionIcon, "Exit", exitPi).build());
+        }
 
         return builder.build();
     }

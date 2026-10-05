@@ -17,8 +17,9 @@
         android:paddingBottom="12dp">
 
         <ImageView
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:contentDescription="Lapdroid App Icon"
             android:src="@mipmap/ic_launcher" />
 
         <LinearLayout
@@ -39,20 +40,21 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Bluetooth Keyboard &amp; Mouse Bridge"
+                android:layout_marginTop="2dp"
+                android:text="Share keyboard, mouse pointer &amp; stylus across Windows and Android"
                 android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Top Tab Selector -->
+    <!-- Top Tab Selector (3 Tabs) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="20dp"
         android:layout_marginEnd="20dp"
         android:layout_marginBottom="12dp"
-        android:background="@color/card_bg"
+        android:background="@drawable/tab_bg_rounded"
         android:orientation="horizontal"
         android:padding="4dp">
 
@@ -65,7 +67,20 @@
             android:backgroundTint="@color/primary"
             android:text="Controls"
             android:textColor="#FFFFFF"
-            android:textSize="13sp"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btn_tab_setup"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1.2"
+            android:backgroundTint="@color/card_bg"
+            android:text="Setup &amp; About"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <Button
@@ -73,15 +88,18 @@
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="0dp"
             android:layout_height="38dp"
+            android:layout_marginStart="4dp"
             android:layout_weight="1"
             android:backgroundTint="@color/card_bg"
-            android:text="Activity &amp; Logs"
+            android:text="Logs"
             android:textColor="@color/text_secondary"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Content Area: Tab 1 - Controls -->
+    <!-- ========================================================================= -->
+    <!-- CONTENT AREA 1: CONTROLS TAB                                              -->
+    <!-- ========================================================================= -->
     <ScrollView
         android:id="@+id/scroll_controls_tab"
         android:layout_width="match_parent"
@@ -97,11 +115,11 @@
             android:paddingEnd="20dp"
             android:paddingBottom="24dp">
 
-            <!-- Status Card -->
+            <!-- Connection Status Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/card_bg"
+                android:background="@drawable/card_bg_rounded"
                 android:orientation="vertical"
                 android:padding="16dp">
 
@@ -124,12 +142,12 @@
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <!-- Mode Selector Card -->
+            <!-- Bluetooth Connection Mode & Dynamic Action Buttons Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                android:background="@color/card_bg"
+                android:background="@drawable/card_bg_rounded"
                 android:orientation="vertical"
                 android:padding="16dp">
 
@@ -167,26 +185,44 @@
                         android:textSize="13sp" />
                 </RadioGroup>
 
-                <!-- Server Mode Controls -->
+                <!-- Dynamic Action Buttons (Same as in Notification!) -->
+                <!-- When Running: Stop, Restart, Exit -->
+                <!-- When Not Running: Start, Exit -->
                 <LinearLayout
-                    android:id="@+id/layout_server_controls"
+                    android:id="@+id/layout_dynamic_buttons"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="14dp"
                     android:orientation="horizontal">
 
+                    <!-- Start Button (visible when not running) -->
                     <Button
-                        android:id="@+id/btn_start_server"
+                        android:id="@+id/btn_action_start"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginEnd="4dp"
                         android:backgroundTint="@color/status_green"
                         android:text="Start"
-                        android:textColor="#FFFFFF" />
+                        android:textColor="#FFFFFF"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
 
+                    <!-- Stop Button (visible when running) -->
                     <Button
-                        android:id="@+id/btn_restart_server"
+                        android:id="@+id/btn_action_stop"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:backgroundTint="@color/status_red"
+                        android:text="Stop"
+                        android:textColor="#FFFFFF"
+                        android:textStyle="bold" />
+
+                    <!-- Restart Button (visible when running) -->
+                    <Button
+                        android:id="@+id/btn_action_restart"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -194,17 +230,20 @@
                         android:layout_marginEnd="2dp"
                         android:backgroundTint="@color/primary"
                         android:text="Restart"
-                        android:textColor="#FFFFFF" />
+                        android:textColor="#FFFFFF"
+                        android:textStyle="bold" />
 
+                    <!-- Exit Button (always visible) -->
                     <Button
-                        android:id="@+id/btn_stop_server"
+                        android:id="@+id/btn_action_exit"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="4dp"
-                        android:backgroundTint="@color/status_red"
-                        android:text="Stop"
-                        android:textColor="#FFFFFF" />
+                        android:backgroundTint="@color/card_stroke"
+                        android:text="Exit"
+                        android:textColor="@color/text_primary"
+                        android:textStyle="bold" />
                 </LinearLayout>
 
                 <!-- Client Mode Controls -->
@@ -261,151 +300,12 @@
 
             </LinearLayout>
 
-            <!-- Permissions Section -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:text="Required Permissions (First-Time Setup)"
-                android:textColor="@color/text_primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
-            <!-- Bluetooth Permission Card -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@color/card_bg"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="12dp">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="1. Bluetooth &amp; Notifications"
-                        android:textColor="@color/text_primary"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tv_perm_bt"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="Checking..."
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <Button
-                    android:id="@+id/btn_grant_bt"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="@color/primary"
-                    android:text="Grant"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
-            <!-- Overlay Permission Card -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@color/card_bg"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="12dp">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="2. Cursor Overlay (Display over apps)"
-                        android:textColor="@color/text_primary"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tv_perm_overlay"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="Checking..."
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <Button
-                    android:id="@+id/btn_grant_overlay"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="@color/primary"
-                    android:text="Grant"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
-            <!-- Accessibility Permission Card -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@color/card_bg"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="12dp">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="3. Accessibility (Touch / Clicks)"
-                        android:textColor="@color/text_primary"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tv_perm_access"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="Checking..."
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <Button
-                    android:id="@+id/btn_grant_access"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="@color/primary"
-                    android:text="Grant"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
             <!-- Test Input Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@color/card_bg"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/card_bg_rounded"
                 android:orientation="vertical"
                 android:padding="14dp">
 
@@ -424,7 +324,7 @@
                     android:layout_marginTop="6dp"
                     android:hint="Click here and type on PC keyboard to test..."
                     android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_secondary"
+                    android:textColorHint="@color/text_muted"
                     android:textSize="14sp" />
             </LinearLayout>
 
@@ -432,7 +332,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="18dp"
                 android:text="Keyboard &amp; Tricky Keys Options"
                 android:textColor="@color/text_primary"
                 android:textSize="15sp"
@@ -442,7 +342,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:background="@color/card_bg"
+                android:background="@drawable/card_bg_rounded"
                 android:orientation="vertical"
                 android:padding="14dp">
 
@@ -500,7 +400,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:checked="true"
-                    android:text="Enable Windows Ctrl Shortcuts (Ctrl+C, V, A, X, Z, Backspace)"
+                    android:text="Enable Windows Ctrl Shortcuts (Ctrl+C, V, A, X, Z, Backspace, Ctrl+Enter)"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp" />
 
@@ -510,7 +410,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
                     android:checked="true"
-                    android:text="Enable Alt+Tab as Recent Apps Switcher"
+                    android:text="Enable Alt+Tab as Recent Apps Switcher and Cycler"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp" />
 
@@ -523,77 +423,15 @@
                     android:text="Ignore Background Placeholder Text (e.g. WhatsApp 'Message')"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp" />
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="14dp"
-                    android:layout_marginBottom="14dp"
-                    android:background="#33FFFFFF" />
-
-                <!-- Direct Input IME Option for Tricky Apps -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Pure Key Sending Keyboard (For WhatsApp, Termux, &amp; Games)"
-                    android:textColor="@color/text_primary"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Sends pure hardware keystrokes without reading any accessibility text or considering pre-existing input."
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
-
-                <TextView
-                    android:id="@+id/tv_ime_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Status: Checking..."
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="horizontal">
-
-                    <Button
-                        android:id="@+id/btn_open_ime_settings"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="4dp"
-                        android:backgroundTint="@color/card_bg"
-                        android:text="1. Enable in Settings"
-                        android:textColor="@color/text_primary"
-                        android:textSize="12sp" />
-
-                    <Button
-                        android:id="@+id/btn_switch_ime"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="4dp"
-                        android:backgroundTint="@color/primary"
-                        android:text="2. Select as Keyboard"
-                        android:textColor="#FFFFFF"
-                        android:textSize="12sp" />
-                </LinearLayout>
             </LinearLayout>
 
-            <!-- Card 5: Stylus & Graphics Tablet Mode -->
+            <!-- Card: Stylus & Graphics Tablet Mode -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="14dp"
                 android:layout_marginBottom="16dp"
-                android:background="@color/card_bg"
+                android:background="@drawable/card_bg_rounded"
                 android:orientation="vertical"
                 android:padding="14dp">
 
@@ -626,7 +464,361 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- Content Area: Tab 2 - Activity & Logs -->
+    <!-- ========================================================================= -->
+    <!-- CONTENT AREA 2: SETUP & ABOUT TAB (Permissions, IME, About, Copyright)   -->
+    <!-- ========================================================================= -->
+    <ScrollView
+        android:id="@+id/scroll_setup_tab"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="24dp">
+
+            <!-- Tagline Header Card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg_rounded"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="About Lapdroid"
+                    android:textColor="@color/primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:lineSpacingExtra="3dp"
+                    android:text="Seamlessly share keyboard, mouse pointer, and stylus across Windows and Android over Bluetooth without Wi-Fi."
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Lapdroid bridges your PC and phone into one unified workstation. Type seamlessly across apps, navigate with your laptop touchpad, and draw with pressure sensitivity in Windows creative software."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Permissions Section Header -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="Required Permissions (First-Time Setup)"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <!-- 1. Bluetooth Permission Card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/card_bg_rounded"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1. Bluetooth &amp; Notifications"
+                        android:textColor="@color/text_primary"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_perm_bt"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Checking..."
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btn_grant_bt"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:backgroundTint="@color/primary"
+                    android:text="Grant"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- 2. Overlay Permission Card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/card_bg_rounded"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="2. Cursor Overlay (Display over apps)"
+                        android:textColor="@color/text_primary"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_perm_overlay"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Checking..."
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btn_grant_overlay"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:backgroundTint="@color/primary"
+                    android:text="Grant"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- 3. Accessibility Permission Card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/card_bg_rounded"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="3. Accessibility (Touch / Clicks)"
+                        android:textColor="@color/text_primary"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_perm_access"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Checking..."
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btn_grant_access"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:backgroundTint="@color/primary"
+                    android:text="Grant"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- 4. Direct Input Keyboard Card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/card_bg_rounded"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="4. Direct Input Keyboard (Pure Keystrokes)"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Directly forwards hardware key events to WhatsApp, Termux, and games without pre-existing text interference."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tv_ime_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Status: Checking..."
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btn_open_ime_settings"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:backgroundTint="@color/card_stroke"
+                        android:text="Enable in Settings"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp" />
+
+                    <Button
+                        android:id="@+id/btn_switch_ime"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="4dp"
+                        android:backgroundTint="@color/primary"
+                        android:text="Select as Keyboard"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- About, Copyright & GitHub Section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="About &amp; Developer"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/card_bg_rounded"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:contentDescription="Lapdroid Logo"
+                        android:src="@mipmap/ic_launcher" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Lapdroid v0.3.0"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="© Silviu Vlasceanu"
+                            android:textColor="@color/primary"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:background="@color/divider" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Source Code &amp; Documentation:"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btn_github_repo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:backgroundTint="@color/primary"
+                    android:text="GitHub Repository (github.com/silviuk/lapdroid)"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Offline Privacy Guarantee: All communication runs entirely through standard Bluetooth RFCOMM sockets. No Wi-Fi, no local network, no cloud servers, and zero telemetry."
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- ========================================================================= -->
+    <!-- CONTENT AREA 3: ACTIVITY & LOGS TAB                                       -->
+    <!-- ========================================================================= -->
     <LinearLayout
         android:id="@+id/layout_logs_tab"
         android:layout_width="match_parent"
@@ -683,7 +875,7 @@
             android:id="@+id/scroll_logs"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="#0D1117"
+            android:background="@color/terminal_bg"
             android:fillViewport="true"
             android:padding="12dp">
 
@@ -694,7 +886,7 @@
                 android:fontFamily="monospace"
                 android:lineSpacingExtra="3dp"
                 android:text="[Lapdroid Logs Initialized]\n"
-                android:textColor="#7EE787"
+                android:textColor="@color/terminal_text"
                 android:textIsSelectable="true"
                 android:textSize="11sp" />
         </ScrollView>
