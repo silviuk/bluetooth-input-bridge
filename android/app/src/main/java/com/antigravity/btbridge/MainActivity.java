@@ -107,6 +107,7 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     private boolean mBound = false;
     private boolean mHasAutoRequested = false;
     private boolean mIsConnected = false;
+    private boolean mIsExiting = false;
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         @Override
@@ -376,6 +377,8 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     }
 
     private void killAppNow() {
+        if (mIsExiting) return;
+        mIsExiting = true;
         AppLogger.i("MainActivity", "killAppNow: completely terminating application process");
         if (mBound) {
             try {
@@ -398,7 +401,7 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
                 android.os.Process.killProcess(android.os.Process.myPid());
                 System.exit(0);
             } catch (Exception ignored) {}
-        }, 120);
+        }, 300);
     }
 
     private void updateActionButtons(boolean isRunning) {
@@ -608,6 +611,7 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     @Override
     protected void onResume() {
         super.onResume();
+        if (mIsExiting) return;
         updatePermissionStatuses();
         updateImeStatus();
 

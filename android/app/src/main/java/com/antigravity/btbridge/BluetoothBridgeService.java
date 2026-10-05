@@ -43,6 +43,7 @@ public class BluetoothBridgeService extends Service {
     private String mConnectedDeviceName = null;
     private boolean mIsServerMode = true;
     private StatusListener mStatusListener;
+    private volatile boolean mIsExiting = false;
 
     private static volatile BluetoothBridgeService sInstance;
 
@@ -123,23 +124,27 @@ public class BluetoothBridgeService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (mIsExiting) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         if (intent != null && intent.getAction() != null) {
             String action = intent.getAction();
             if (ACTION_STOP.equals(action)) {
                 pauseBridge();
-                return START_STICKY;
+                return START_NOT_STICKY;
             } else if (ACTION_RESTART.equals(action)) {
                 restartBridge();
-                return START_STICKY;
+                return START_NOT_STICKY;
             } else if (ACTION_START.equals(action)) {
                 resumeBridge();
-                return START_STICKY;
+                return START_NOT_STICKY;
             } else if (ACTION_EXIT.equals(action)) {
                 exitApplication();
                 return START_NOT_STICKY;
             }
         }
-        return START_STICKY;
+        return START_NOT_STICKY;
     }
 
     public synchronized void disconnect() {
@@ -184,24 +189,43 @@ public class BluetoothBridgeService extends Service {
     }
 
     public synchronized void exitApplication() {
+        if (mIsExiting) return;
+        mIsExiting = true;
         AppLogger.i("BT-Bridge", "Exiting application completely");
-        disconnect();
+
+        mMainHandler.removeCallbacksAndMessages(null);
+
+        mIsRunning = false;
+        mIsConnected = false;
+        mConnectedDeviceName = null;
+
+        if (mConnectedThread != null) {
+            mConnectedThread.cancel();
+            mConnectedThread = null;
+        }
         if (mAcceptThread != null) {
             mAcceptThread.cancel();
             mAcceptThread = null;
         }
         if (mCursorOverlay != null) {
             mCursorOverlay.hide();
+            mCursorOverlay = null;
         }
-        mIsRunning = false;
-        mIsConnected = false;
-        stopForeground(true);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE);
+        } else {
+            stopForeground(true);
+        }
+
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) {
             nm.cancel(NOTIFICATION_ID);
             nm.cancelAll();
         }
+
         stopSelf();
+
         try {
             sendBroadcast(new Intent(ACTION_EXIT_APP));
         } catch (Exception ignored) {}
@@ -211,7 +235,7 @@ public class BluetoothBridgeService extends Service {
                 android.os.Process.killProcess(android.os.Process.myPid());
                 System.exit(0);
             } catch (Exception ignored) {}
-        }, 200);
+        }, 300);
     }
 
     public synchronized void stopServiceInternal() {
@@ -229,9 +253,11 @@ public class BluetoothBridgeService extends Service {
     }
 
     private void notifyStatus(String status, boolean connected) {
+        if (mIsExiting) return;
         mIsConnected = connected;
         AppLogger.i("BT-Bridge", "Status -> " + status + " (connected=" + connected + ")");
         mMainHandler.post(() -> {
+            if (mIsExiting) return;
             if (mStatusListener != null) {
                 mStatusListener.onStatusChanged(status, connected);
             }
@@ -767,6 +793,7 @@ public class BluetoothBridgeService extends Service {
     }
 
     private void updateNotification(String text) {
+        if (mIsExiting) return;
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) {
             try {
@@ -777,6 +804,8 @@ public class BluetoothBridgeService extends Service {
 
     @Override
     public void onDestroy() {
+        mIsExiting = true;
+        mMainHandler.removeCallbacksAndMessages(null);
         if (sInstance == this) sInstance = null;
         if (mAcceptThread != null) mAcceptThread.cancel();
         if (mConnectedThread != null) mConnectedThread.cancel();
