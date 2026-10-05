@@ -486,7 +486,21 @@ void MainWindow::ShowTrayMenu() {
     HMENU hMenu = CreatePopupMenu();
     if (!hMenu) return;
 
-    InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING | MF_DEFAULT, IDM_TRAY_OPEN, L"Open Window");
+    InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING | MF_DEFAULT, IDM_TRAY_OPEN, L"Open Lapdroid (Show UI)");
+    InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
+
+    if (m_btManager->IsConnected()) {
+        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_DISCONNECT, L"Stop / Disconnect");
+        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_RESTART, L"Restart Connection");
+    } else if (m_btManager->GetStatus() == ConnectionStatus::Listening) {
+        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_DISCONNECT, L"Stop Bluetooth Server");
+        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_RESTART, L"Restart Bluetooth Server");
+    } else {
+        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_CONNECT, L"Start Bluetooth Server");
+        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_CONNECT_DEVICE, L"Connect to Selected Device");
+    }
+
+    InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
     InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_TOGGLE_CAPTURE,
         m_inputCapture->IsCapturing() ? L"Release Capture (F12)" : L"Capture Input (F12)");
     InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
@@ -494,20 +508,13 @@ void MainWindow::ShowTrayMenu() {
     InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_BACK, L"Android Back");
     InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_RECENTS, L"Android Recents");
     InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
-
-    if (m_btManager->IsConnected()) {
-        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_DISCONNECT, L"Disconnect");
-    } else {
-        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_CONNECT, L"Connect / Start Server");
-    }
-
-    InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
-    InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_EXIT, L"Exit Application");
+    InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, IDM_TRAY_EXIT, L"Exit Lapdroid");
 
     POINT pt;
     GetCursorPos(&pt);
     SetForegroundWindow(m_hWnd);
-    TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, m_hWnd, NULL);
+    TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_RIGHTALIGN | TPM_LEFTBUTTON, pt.x, pt.y, 0, m_hWnd, NULL);
+    PostMessageW(m_hWnd, WM_NULL, 0, 0);
     DestroyMenu(hMenu);
 }
 
@@ -694,8 +701,40 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
                     break;
 
                 case IDM_TRAY_CONNECT:
+                    if (m_btManager->GetStatus() != ConnectionStatus::Listening && !m_btManager->IsConnected()) {
+                        m_btManager->StartServer();
+                    }
+                    OnModeChanged();
+                    break;
+
+                case IDM_TRAY_CONNECT_DEVICE: {
+                    int sel = ComboBox_GetCurSel(m_hComboDevices);
+                    if (sel >= 0 && sel < (int)m_cachedDevices.size()) {
+                        m_btManager->ConnectToDevice(m_cachedDevices[sel].address, 1);
+                    } else {
+                        ShowWindow(m_hWnd, SW_RESTORE);
+                        SetForegroundWindow(m_hWnd);
+                    }
+                    break;
+                }
+
                 case IDM_TRAY_DISCONNECT:
-                    OnConnectButtonClicked();
+                    m_btManager->Disconnect();
+                    OnModeChanged();
+                    break;
+
+                case IDM_TRAY_RESTART:
+                    m_btManager->Disconnect();
+                    Sleep(100);
+                    if (Button_GetCheck(m_hRadioServer) == BST_CHECKED) {
+                        m_btManager->StartServer();
+                    } else {
+                        int sel = ComboBox_GetCurSel(m_hComboDevices);
+                        if (sel >= 0 && sel < (int)m_cachedDevices.size()) {
+                            m_btManager->ConnectToDevice(m_cachedDevices[sel].address, 1);
+                        }
+                    }
+                    OnModeChanged();
                     break;
 
                 case IDM_TRAY_HOME:    OnSendAction(ACT_HOME); break;
@@ -724,12 +763,22 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
             break;
         }
 
+        case WM_CONTEXTMENU: {
+            ShowTrayMenu();
+            return 0;
+        }
+
         case WM_TRAYNOTIFY: {
-            if (lParam == WM_RBUTTONUP) {
+            UINT uMsg = LOWORD(lParam);
+            if (lParam == WM_RBUTTONUP || lParam == WM_RBUTTONDOWN ||
+                uMsg == WM_CONTEXTMENU || uMsg == WM_RBUTTONUP || uMsg == WM_RBUTTONDOWN) {
                 ShowTrayMenu();
-            } else if (lParam == WM_LBUTTONDBLCLK || lParam == WM_LBUTTONUP) {
+                return 0;
+            } else if (lParam == WM_LBUTTONDBLCLK || lParam == WM_LBUTTONUP ||
+                       uMsg == NIN_SELECT || uMsg == WM_LBUTTONUP || uMsg == WM_LBUTTONDBLCLK) {
                 ShowWindow(m_hWnd, SW_RESTORE);
                 SetForegroundWindow(m_hWnd);
+                return 0;
             }
             break;
         }

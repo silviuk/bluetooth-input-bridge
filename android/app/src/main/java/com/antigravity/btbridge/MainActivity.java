@@ -33,7 +33,9 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     private Button mBtnGrantBt;
     private Button mBtnGrantOverlay;
     private Button mBtnGrantAccess;
-    private Button mBtnToggleServer;
+    private Button mBtnStartServer;
+    private Button mBtnRestartServer;
+    private Button mBtnStopServer;
     private EditText mEtTestInput;
 
     private BluetoothBridgeService mService;
@@ -69,22 +71,46 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         mBtnGrantBt = findViewById(R.id.btn_grant_bt);
         mBtnGrantOverlay = findViewById(R.id.btn_grant_overlay);
         mBtnGrantAccess = findViewById(R.id.btn_grant_access);
-        mBtnToggleServer = findViewById(R.id.btn_toggle_server);
+        mBtnStartServer = findViewById(R.id.btn_start_server);
+        mBtnRestartServer = findViewById(R.id.btn_restart_server);
+        mBtnStopServer = findViewById(R.id.btn_stop_server);
         mEtTestInput = findViewById(R.id.et_test_input);
 
         mBtnGrantBt.setOnClickListener(v -> requestMissingRuntimePermissions());
         mBtnGrantOverlay.setOnClickListener(v -> requestOverlayPermission());
         mBtnGrantAccess.setOnClickListener(v -> checkAndPromptAccessibility());
 
-        mBtnToggleServer.setOnClickListener(v -> {
+        mBtnStartServer.setOnClickListener(v -> {
             if (mBound && mService != null) {
                 mService.startServer();
-                Toast.makeText(this, "Lapdroid Bluetooth listener restarted", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Bluetooth listener started", Toast.LENGTH_SHORT).show();
             } else if (hasBluetoothPermissions()) {
                 startBridgeServiceSafe();
             } else {
                 Toast.makeText(this, "Please grant Bluetooth permission first", Toast.LENGTH_SHORT).show();
                 requestMissingRuntimePermissions();
+            }
+        });
+
+        mBtnRestartServer.setOnClickListener(v -> {
+            if (mBound && mService != null) {
+                mService.startServer();
+                Toast.makeText(this, "Bluetooth listener restarted", Toast.LENGTH_SHORT).show();
+            } else if (hasBluetoothPermissions()) {
+                startBridgeServiceSafe();
+            } else {
+                requestMissingRuntimePermissions();
+            }
+        });
+
+        mBtnStopServer.setOnClickListener(v -> {
+            if (mBound && mService != null) {
+                mService.stopServiceInternal();
+                Toast.makeText(this, "Bluetooth listener stopped", Toast.LENGTH_SHORT).show();
+            } else {
+                Intent stopIntent = new Intent(this, BluetoothBridgeService.class);
+                stopIntent.setAction(BluetoothBridgeService.ACTION_STOP);
+                startService(stopIntent);
             }
         });
 

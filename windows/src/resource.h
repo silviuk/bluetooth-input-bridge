@@ -13,6 +13,8 @@
 #define IDM_TRAY_BACK           206
 #define IDM_TRAY_RECENTS        207
 #define IDM_TRAY_EXIT           208
+#define IDM_TRAY_RESTART        209
+#define IDM_TRAY_CONNECT_DEVICE 210
 
 // UI Control IDs
 #define IDC_RADIO_SERVER        301

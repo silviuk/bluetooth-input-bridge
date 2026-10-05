@@ -14,6 +14,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
+import android.graphics.drawable.Icon;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
@@ -74,9 +75,44 @@ public class BluetoothBridgeService extends Service {
         startServer();
     }
 
+    public static final String ACTION_START = "com.antigravity.btbridge.ACTION_START";
+    public static final String ACTION_STOP = "com.antigravity.btbridge.ACTION_STOP";
+    public static final String ACTION_RESTART = "com.antigravity.btbridge.ACTION_RESTART";
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && intent.getAction() != null) {
+            String action = intent.getAction();
+            if (ACTION_STOP.equals(action)) {
+                stopServiceInternal();
+                return START_NOT_STICKY;
+            } else if (ACTION_RESTART.equals(action)) {
+                startServer();
+                return START_STICKY;
+            } else if (ACTION_START.equals(action)) {
+                startServer();
+                return START_STICKY;
+            }
+        }
         return START_STICKY;
+    }
+
+    public synchronized void stopServiceInternal() {
+        if (mAcceptThread != null) {
+            mAcceptThread.cancel();
+            mAcceptThread = null;
+        }
+        if (mConnectedThread != null) {
+            mConnectedThread.cancel();
+            mConnectedThread = null;
+        }
+        if (mCursorOverlay != null) {
+            mCursorOverlay.hide();
+        }
+        mIsConnected = false;
+        notifyStatus("Service Stopped", false);
+        stopForeground(true);
+        stopSelf();
     }
 
     @Override
@@ -413,20 +449,37 @@ public class BluetoothBridgeService extends Service {
     }
 
     private Notification buildNotification(String text) {
-        Intent intent = new Intent(this, MainActivity.class);
-        PendingIntent pi = PendingIntent.getActivity(this, 0, intent,
+        Intent openIntent = new Intent(this, MainActivity.class);
+        openIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent openPi = PendingIntent.getActivity(this, 1, openIntent,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        Intent restartIntent = new Intent(this, BluetoothBridgeService.class);
+        restartIntent.setAction(ACTION_RESTART);
+        PendingIntent restartPi = PendingIntent.getService(this, 2, restartIntent,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        Intent stopIntent = new Intent(this, BluetoothBridgeService.class);
+        stopIntent.setAction(ACTION_STOP);
+        PendingIntent stopPi = PendingIntent.getService(this, 3, stopIntent,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
         Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? new Notification.Builder(this, CHANNEL_ID)
                 : new Notification.Builder(this);
 
-        return builder.setContentTitle("Lapdroid")
+        builder.setContentTitle("Lapdroid")
                 .setContentText(text)
                 .setSmallIcon(R.drawable.ic_launcher)
-                .setContentIntent(pi)
-                .setOngoing(true)
-                .build();
+                .setContentIntent(openPi)
+                .setOngoing(true);
+
+        Icon actionIcon = Icon.createWithResource(this, R.drawable.ic_launcher);
+        builder.addAction(new Notification.Action.Builder(actionIcon, "Open", openPi).build());
+        builder.addAction(new Notification.Action.Builder(actionIcon, "Restart", restartPi).build());
+        builder.addAction(new Notification.Action.Builder(actionIcon, "Stop", stopPi).build());
+
+        return builder.build();
     }
 
     private void updateNotification(String text) {
