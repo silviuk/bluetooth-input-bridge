@@ -514,6 +514,16 @@
                     android:textColor="@color/text_primary"
                     android:textSize="13sp" />
 
+                <CheckBox
+                    android:id="@+id/cb_ignore_placeholder"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:checked="true"
+                    android:text="Ignore Background Placeholder Text (e.g. WhatsApp 'Message')"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp" />
+
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
@@ -525,7 +535,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Direct Input Keyboard (For Termux &amp; Games)"
+                    android:text="Pure Key Sending Keyboard (For WhatsApp, Termux, &amp; Games)"
                     android:textColor="@color/text_primary"
                     android:textStyle="bold" />
 
@@ -533,18 +543,48 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="If using apps that reject standard accessibility text input (such as Termux, console emulators, remote desktops, or games), enable the optional Lapdroid Direct Input Keyboard in Android Settings."
+                    android:text="Sends pure hardware keystrokes without reading any accessibility text or considering pre-existing input."
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
 
-                <Button
-                    android:id="@+id/btn_open_ime_settings"
+                <TextView
+                    android:id="@+id/tv_ime_status"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:backgroundTint="@color/primary"
-                    android:text="Configure Lapdroid Keyboard in Settings"
-                    android:textColor="#FFFFFF" />
+                    android:layout_marginTop="8dp"
+                    android:text="Status: Checking..."
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btn_open_ime_settings"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:backgroundTint="@color/card_bg"
+                        android:text="1. Enable in Settings"
+                        android:textColor="@color/text_primary"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/btn_switch_ime"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="4dp"
+                        android:backgroundTint="@color/primary"
+                        android:text="2. Select as Keyboard"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp" />
+                </LinearLayout>
             </LinearLayout>
 
         </LinearLayout>

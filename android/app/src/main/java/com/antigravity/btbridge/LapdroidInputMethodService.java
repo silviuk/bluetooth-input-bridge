@@ -50,32 +50,44 @@ public class LapdroidInputMethodService extends InputMethodService {
         if ((modifiers & Protocol.MOD_ALT) != 0)   metaState |= KeyEvent.META_ALT_ON | KeyEvent.META_ALT_LEFT_ON;
         if ((modifiers & Protocol.MOD_META) != 0)  metaState |= KeyEvent.META_META_ON | KeyEvent.META_META_LEFT_ON;
 
-        // 1. Backspace
+        // 1. Backspace (native key event deletes selection or char)
         if (androidKeycode == 67) { // KEYCODE_DEL
-            ic.deleteSurroundingText(1, 0);
+            ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL, 0, metaState));
+            ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL, 0, metaState));
             return true;
         }
 
         // 2. Forward Delete
         if (androidKeycode == 112) { // KEYCODE_FORWARD_DEL
-            ic.deleteSurroundingText(0, 1);
+            ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_FORWARD_DEL, 0, metaState));
+            ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_FORWARD_DEL, 0, metaState));
             return true;
         }
 
-        // 3. Enter
+        // 3. Ctrl Shortcuts
+        if ((modifiers & Protocol.MOD_CTRL) != 0) {
+            if (androidKeycode == 29) { ic.performContextMenuAction(android.R.id.selectAll); return true; }
+            if (androidKeycode == 31) { ic.performContextMenuAction(android.R.id.copy); return true; }
+            if (androidKeycode == 50) { ic.performContextMenuAction(android.R.id.paste); return true; }
+            if (androidKeycode == 52) { ic.performContextMenuAction(android.R.id.cut); return true; }
+            if (androidKeycode == 54) { ic.performContextMenuAction(android.R.id.undo); return true; }
+            if (androidKeycode == 53) { ic.performContextMenuAction(android.R.id.redo); return true; }
+        }
+
+        // 4. Enter
         if (androidKeycode == 66) { // KEYCODE_ENTER
             ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0, metaState));
             ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0, metaState));
             return true;
         }
 
-        // 4. Regular printable character without Ctrl
+        // 5. Regular printable character without Ctrl
         if ((modifiers & Protocol.MOD_CTRL) == 0 && unicodeChar != 0 && !Character.isISOControl(unicodeChar)) {
             ic.commitText(String.valueOf(unicodeChar), 1);
             return true;
         }
 
-        // 5. Send raw key events for navigation, shortcuts, and games
+        // 6. Send raw key events for navigation, shortcuts, and games
         if (androidKeycode > 0) {
             ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, androidKeycode, 0, metaState));
             ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, androidKeycode, 0, metaState));

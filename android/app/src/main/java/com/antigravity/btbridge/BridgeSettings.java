@@ -27,6 +27,7 @@ public class BridgeSettings {
     // Toggles
     public static final String KEY_ENABLE_CTRL_SHORTCUTS = "pref_ctrl_shortcuts";
     public static final String KEY_ENABLE_ALT_TAB = "pref_alt_tab";
+    public static final String KEY_IGNORE_PLACEHOLDERS = "pref_ignore_placeholders";
 
     private final SharedPreferences mPrefs;
     private static BridgeSettings sInstance;
@@ -80,5 +81,13 @@ public class BridgeSettings {
 
     public void setAltTabEnabled(boolean enabled) {
         mPrefs.edit().putBoolean(KEY_ENABLE_ALT_TAB, enabled).apply();
+    }
+
+    public boolean isIgnorePlaceholdersEnabled() {
+        return mPrefs.getBoolean(KEY_IGNORE_PLACEHOLDERS, true);
+    }
+
+    public void setIgnorePlaceholdersEnabled(boolean enabled) {
+        mPrefs.edit().putBoolean(KEY_IGNORE_PLACEHOLDERS, enabled).apply();
     }
 }

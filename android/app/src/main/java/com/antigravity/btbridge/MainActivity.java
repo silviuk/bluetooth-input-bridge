@@ -80,7 +80,10 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     private Spinner mSpWinAction;
     private CheckBox mCbCtrlShortcuts;
     private CheckBox mCbAltTab;
+    private CheckBox mCbIgnorePlaceholder;
+    private TextView mTvImeStatus;
     private Button mBtnOpenImeSettings;
+    private Button mBtnSwitchIme;
 
     // Logs
     private TextView mTvLogContent;
@@ -153,7 +156,10 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         mSpWinAction = findViewById(R.id.sp_win_action);
         mCbCtrlShortcuts = findViewById(R.id.cb_ctrl_shortcuts);
         mCbAltTab = findViewById(R.id.cb_alt_tab);
+        mCbIgnorePlaceholder = findViewById(R.id.cb_ignore_placeholder);
+        mTvImeStatus = findViewById(R.id.tv_ime_status);
         mBtnOpenImeSettings = findViewById(R.id.btn_open_ime_settings);
+        mBtnSwitchIme = findViewById(R.id.btn_switch_ime);
         initKeyboardOptions();
 
         mTvLogContent = findViewById(R.id.tv_log_content);
@@ -344,7 +350,10 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         mCbAltTab.setChecked(settings.isAltTabEnabled());
         mCbAltTab.setOnCheckedChangeListener((btn, isChecked) -> settings.setAltTabEnabled(isChecked));
 
-        // 5. IME Settings button
+        mCbIgnorePlaceholder.setChecked(settings.isIgnorePlaceholdersEnabled());
+        mCbIgnorePlaceholder.setOnCheckedChangeListener((btn, isChecked) -> settings.setIgnorePlaceholdersEnabled(isChecked));
+
+        // 5. IME Buttons
         mBtnOpenImeSettings.setOnClickListener(v -> {
             try {
                 startActivity(new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS));
@@ -352,6 +361,54 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
                 Toast.makeText(this, "Could not open Keyboard Settings: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+
+        mBtnSwitchIme.setOnClickListener(v -> {
+            try {
+                android.view.inputmethod.InputMethodManager imm =
+                        (android.view.inputmethod.InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) {
+                    imm.showInputMethodPicker();
+                }
+            } catch (Exception e) {
+                Toast.makeText(this, "Could not open Keyboard Picker: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        updateImeStatus();
+    }
+
+    private void updateImeStatus() {
+        if (mTvImeStatus == null) return;
+        try {
+            android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            boolean isEnabled = false;
+            if (imm != null) {
+                List<android.view.inputmethod.InputMethodInfo> list = imm.getEnabledInputMethodList();
+                for (android.view.inputmethod.InputMethodInfo info : list) {
+                    if (info.getPackageName().equals(getPackageName())) {
+                        isEnabled = true;
+                        break;
+                    }
+                }
+            }
+
+            String currentIme = Settings.Secure.getString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD);
+            boolean isCurrent = currentIme != null && currentIme.contains(getPackageName());
+
+            if (isCurrent) {
+                mTvImeStatus.setText("● Active: Pure Key Sending Mode (Bypasses Accessibility)");
+                mTvImeStatus.setTextColor(0xFF9ECE6A); // status green
+            } else if (isEnabled) {
+                mTvImeStatus.setText("○ Enabled in Settings (Tap Button 2 to Select as Active Keyboard)");
+                mTvImeStatus.setTextColor(0xFFE0AF68); // warning yellow
+            } else {
+                mTvImeStatus.setText("○ Disabled in Settings (Tap Button 1 to Enable)");
+                mTvImeStatus.setTextColor(0xFF7A88CF); // text secondary
+            }
+        } catch (Exception e) {
+            mTvImeStatus.setText("Status: Ready");
+        }
     }
 
     private void switchTab(boolean showControls) {
@@ -416,6 +473,7 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     protected void onResume() {
         super.onResume();
         updatePermissionStatuses();
+        updateImeStatus();
 
         if (hasBluetoothPermissions()) {
             if (!mBound) {

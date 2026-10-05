@@ -179,14 +179,51 @@ public class InputAccessibilityService extends AccessibilityService {
 
         try {
             CharSequence current = focused.getText();
+            CharSequence hintText = focused.getHintText();
+            boolean isShowingHint = focused.isShowingHintText();
             int selStart = focused.getTextSelectionStart();
             int selEnd = focused.getTextSelectionEnd();
-            int len = (current != null) ? current.length() : 0;
 
-            if (selStart < 0 || selEnd < 0) {
-                selStart = len;
-                selEnd = len;
+            // Detect if current text is background placeholder/hint text (e.g. WhatsApp "Message" or "Type a message")
+            boolean isPlaceholder = false;
+            if (settings.isIgnorePlaceholdersEnabled()) {
+                if (isShowingHint) {
+                    isPlaceholder = true;
+                } else if (hintText != null && current != null) {
+                    String curStr = current.toString().trim();
+                    String hStr = hintText.toString().trim();
+                    if (curStr.equalsIgnoreCase(hStr)) {
+                        isPlaceholder = true;
+                    }
+                }
+                if (!isPlaceholder && current != null) {
+                    String curStr = current.toString().trim();
+                    if (curStr.equalsIgnoreCase("Message") ||
+                        curStr.equalsIgnoreCase("Type a message") ||
+                        curStr.equalsIgnoreCase("Write a message...") ||
+                        curStr.equalsIgnoreCase("Send a message") ||
+                        curStr.equalsIgnoreCase("Search") ||
+                        curStr.equalsIgnoreCase("Search...")) {
+                        // If unselected or at boundary, it's the background placeholder
+                        if (selStart < 0 || selStart == 0 || selStart == curStr.length()) {
+                            isPlaceholder = true;
+                        }
+                    }
+                }
             }
+
+            if (isPlaceholder) {
+                current = "";
+                selStart = 0;
+                selEnd = 0;
+            } else {
+                int l = (current != null) ? current.length() : 0;
+                if (selStart < 0 || selEnd < 0) {
+                    selStart = l;
+                    selEnd = l;
+                }
+            }
+            int len = (current != null) ? current.length() : 0;
 
             // ================= 1. WINDOWS CTRL SHORTCUTS =================
             if (isCtrl && settings.isCtrlShortcutsEnabled()) {
