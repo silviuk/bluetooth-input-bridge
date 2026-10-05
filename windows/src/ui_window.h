@@ -67,6 +67,8 @@ private:
     // Controls
     HWND m_hRadioServer;
     HWND m_hRadioClient;
+    HWND m_hLabelRadioServer;
+    HWND m_hLabelRadioClient;
     HWND m_hComboDevices;
     HWND m_hBtnRefresh;
     HWND m_hBtnConnect;

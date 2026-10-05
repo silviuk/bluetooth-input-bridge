@@ -261,16 +261,22 @@ void MainWindow::CreateControls() {
     SendMessageW(hModeLabel, WM_SETFONT, (WPARAM)m_hFontBold, TRUE);
     curY += 24;
 
-    m_hRadioServer = CreateWindowExW(0, L"BUTTON", L"Server Mode (Wait for Android phone to connect)",
+    m_hRadioServer = CreateWindowExW(0, L"BUTTON", L"",
         WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON | WS_GROUP,
-        padX + 10, curY, 480, 22, m_hWnd, (HMENU)IDC_RADIO_SERVER, m_hInstance, NULL);
-    SendMessageW(m_hRadioServer, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
+        padX + 10, curY + 2, 20, 20, m_hWnd, (HMENU)IDC_RADIO_SERVER, m_hInstance, NULL);
+    m_hLabelRadioServer = CreateWindowExW(0, L"STATIC", L"Server Mode (Wait for Android phone to connect)",
+        WS_CHILD | WS_VISIBLE | SS_NOTIFY,
+        padX + 34, curY + 2, 450, 20, m_hWnd, (HMENU)IDC_LABEL_RADIO_SERVER, m_hInstance, NULL);
+    SendMessageW(m_hLabelRadioServer, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     curY += 26;
 
-    m_hRadioClient = CreateWindowExW(0, L"BUTTON", L"Client Mode (Connect to paired Android phone)",
+    m_hRadioClient = CreateWindowExW(0, L"BUTTON", L"",
         WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON,
-        padX + 10, curY, 480, 22, m_hWnd, (HMENU)IDC_RADIO_CLIENT, m_hInstance, NULL);
-    SendMessageW(m_hRadioClient, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
+        padX + 10, curY + 2, 20, 20, m_hWnd, (HMENU)IDC_RADIO_CLIENT, m_hInstance, NULL);
+    m_hLabelRadioClient = CreateWindowExW(0, L"STATIC", L"Client Mode (Connect to paired Android phone)",
+        WS_CHILD | WS_VISIBLE | SS_NOTIFY,
+        padX + 34, curY + 2, 450, 20, m_hWnd, (HMENU)IDC_LABEL_RADIO_CLIENT, m_hInstance, NULL);
+    SendMessageW(m_hLabelRadioClient, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     Button_SetCheck(m_hRadioServer, BST_CHECKED);
     curY += 30;
 
@@ -621,8 +627,35 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 
             switch (wmId) {
                 case IDC_RADIO_SERVER:
+                    if (wmEvent == BN_CLICKED) {
+                        Button_SetCheck(m_hRadioServer, BST_CHECKED);
+                        Button_SetCheck(m_hRadioClient, BST_UNCHECKED);
+                        OnModeChanged();
+                    }
+                    break;
+
                 case IDC_RADIO_CLIENT:
-                    if (wmEvent == BN_CLICKED) OnModeChanged();
+                    if (wmEvent == BN_CLICKED) {
+                        Button_SetCheck(m_hRadioClient, BST_CHECKED);
+                        Button_SetCheck(m_hRadioServer, BST_UNCHECKED);
+                        OnModeChanged();
+                    }
+                    break;
+
+                case IDC_LABEL_RADIO_SERVER:
+                    if (wmEvent == STN_CLICKED) {
+                        Button_SetCheck(m_hRadioServer, BST_CHECKED);
+                        Button_SetCheck(m_hRadioClient, BST_UNCHECKED);
+                        OnModeChanged();
+                    }
+                    break;
+
+                case IDC_LABEL_RADIO_CLIENT:
+                    if (wmEvent == STN_CLICKED) {
+                        Button_SetCheck(m_hRadioClient, BST_CHECKED);
+                        Button_SetCheck(m_hRadioServer, BST_UNCHECKED);
+                        OnModeChanged();
+                    }
                     break;
 
                 case IDC_BTN_REFRESH:

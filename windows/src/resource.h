@@ -32,6 +32,8 @@
 #define IDC_BTN_ACT_VOLUP       315
 #define IDC_BTN_ACT_VOLDOWN     316
 #define IDC_BTN_ACT_LOCK        317
+#define IDC_LABEL_RADIO_SERVER  318
+#define IDC_LABEL_RADIO_CLIENT  319
 
 #define WM_TRAYNOTIFY           (WM_APP + 10)
 
