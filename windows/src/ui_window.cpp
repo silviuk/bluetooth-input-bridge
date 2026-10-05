@@ -42,6 +42,7 @@ MainWindow::MainWindow(HINSTANCE hInstance, BluetoothManager* btManager, InputCa
     , m_hEditLogs(NULL)
     , m_hBtnCopyLogs(NULL)
     , m_hBtnClearLogs(NULL)
+    , m_hCheckEnableLogging(NULL)
     , m_hFontTitle(NULL)
     , m_hFontNormal(NULL)
     , m_hFontBold(NULL)
@@ -51,6 +52,7 @@ MainWindow::MainWindow(HINSTANCE hInstance, BluetoothManager* btManager, InputCa
     , m_hCardBrush(NULL)
     , m_hInputBrush(NULL)
     , m_hLogBgBrush(NULL)
+    , m_hCardBorderPen(NULL)
     , m_hAppIcon(NULL)
     , m_hTrayIcon(NULL)
     , m_isDark(false)
@@ -70,6 +72,7 @@ MainWindow::~MainWindow() {
     if (m_hCardBrush) DeleteObject(m_hCardBrush);
     if (m_hInputBrush) DeleteObject(m_hInputBrush);
     if (m_hLogBgBrush) DeleteObject(m_hLogBgBrush);
+    if (m_hCardBorderPen) DeleteObject(m_hCardBorderPen);
     if (m_hFontTitle) DeleteObject(m_hFontTitle);
     if (m_hFontNormal) DeleteObject(m_hFontNormal);
     if (m_hFontBold) DeleteObject(m_hFontBold);
@@ -86,7 +89,10 @@ bool MainWindow::DetectWindowsDarkMode() {
     if (RegOpenKeyExW(HKEY_CURRENT_USER,
         L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
         0, KEY_READ, &hKey) == ERROR_SUCCESS) {
-        RegQueryValueExW(hKey, L"AppsUseLightTheme", NULL, NULL, (LPBYTE)&value, &size);
+        if (RegQueryValueExW(hKey, L"AppsUseLightTheme", NULL, NULL, (LPBYTE)&value, &size) != ERROR_SUCCESS) {
+            size = sizeof(value);
+            RegQueryValueExW(hKey, L"SystemUsesLightTheme", NULL, NULL, (LPBYTE)&value, &size);
+        }
         RegCloseKey(hKey);
     }
     return (value == 0);
@@ -98,6 +104,16 @@ void MainWindow::ApplyDwmDarkMode(bool isDark) {
     // DWMWA_USE_IMMERSIVE_DARK_MODE (20 on Win10 2004+ and Win11; 19 on older Win10)
     DwmSetWindowAttribute(m_hWnd, 20, &useDark, sizeof(useDark));
     DwmSetWindowAttribute(m_hWnd, 19, &useDark, sizeof(useDark));
+
+    // Windows 11 DWM rounded corners
+    DWORD cornerPref = 2; // DWMWCP_ROUND
+    DwmSetWindowAttribute(m_hWnd, 33, &cornerPref, sizeof(cornerPref));
+
+    // Modern titlebar caption matching theme
+    COLORREF captionColor = isDark ? RGB(32, 32, 32) : RGB(243, 243, 243);
+    DwmSetWindowAttribute(m_hWnd, 35, &captionColor, sizeof(captionColor));
+    COLORREF captionText = isDark ? RGB(255, 255, 255) : RGB(24, 24, 24);
+    DwmSetWindowAttribute(m_hWnd, 36, &captionText, sizeof(captionText));
 }
 
 void MainWindow::ApplyTheme(bool isDark) {
@@ -105,10 +121,11 @@ void MainWindow::ApplyTheme(bool isDark) {
     if (m_isDark) {
         m_theme.isDark = true;
         m_theme.bg = RGB(32, 32, 32);            // #202020 Modern Windows 11 Dark
-        m_theme.cardBg = RGB(45, 45, 45);        // #2D2D2D Surface
-        m_theme.inputBg = RGB(22, 27, 34);       // Deep Dark Terminal #161B22
-        m_theme.text = RGB(242, 242, 242);       // #F2F2F2 Crisp Off-white
-        m_theme.textMuted = RGB(160, 160, 160);  // #A0A0A0
+        m_theme.cardBg = RGB(44, 44, 44);        // #2C2C2C Fluent Card Surface
+        m_theme.cardBorder = RGB(64, 64, 64);    // #404040 Subtle Border
+        m_theme.inputBg = RGB(22, 24, 28);       // Deep Dark Terminal #16181C
+        m_theme.text = RGB(255, 255, 255);       // #FFFFFF Crisp Off-white
+        m_theme.textMuted = RGB(170, 170, 170);  // #AAAAAA
         m_theme.textTitle = RGB(255, 255, 255);  // #FFFFFF
         m_theme.accent = RGB(96, 205, 255);      // #60CDFF Fluent Light Blue
         m_theme.statusSuccess = RGB(108, 203, 95); // #6CCB5F
@@ -117,9 +134,10 @@ void MainWindow::ApplyTheme(bool isDark) {
         m_theme.isDark = false;
         m_theme.bg = RGB(243, 243, 243);          // #F3F3F3 Modern Windows 11 Light
         m_theme.cardBg = RGB(255, 255, 255);      // #FFFFFF
-        m_theme.inputBg = RGB(246, 248, 250);     // Light terminal bg
-        m_theme.text = RGB(30, 30, 30);           // #1E1E1E Charcoal dark text
-        m_theme.textMuted = RGB(100, 100, 100);   // #646464
+        m_theme.cardBorder = RGB(229, 229, 229);  // #E5E5E5 Subtle Card Border
+        m_theme.inputBg = RGB(250, 250, 250);     // Light terminal bg #FAFAFA
+        m_theme.text = RGB(24, 24, 24);           // #181818 Charcoal dark text
+        m_theme.textMuted = RGB(95, 95, 95);      // #5F5F5F
         m_theme.textTitle = RGB(0, 0, 0);         // #000000
         m_theme.accent = RGB(0, 103, 192);        // #0067C0 Windows Fluent Blue
         m_theme.statusSuccess = RGB(16, 124, 16); // #107C10 Crisp Green
@@ -130,15 +148,43 @@ void MainWindow::ApplyTheme(bool isDark) {
     if (m_hCardBrush) DeleteObject(m_hCardBrush);
     if (m_hInputBrush) DeleteObject(m_hInputBrush);
     if (m_hLogBgBrush) DeleteObject(m_hLogBgBrush);
+    if (m_hCardBorderPen) DeleteObject(m_hCardBorderPen);
 
     m_hBgBrush = CreateSolidBrush(m_theme.bg);
     m_hCardBrush = CreateSolidBrush(m_theme.cardBg);
     m_hInputBrush = CreateSolidBrush(m_theme.inputBg);
     m_hLogBgBrush = CreateSolidBrush(m_theme.inputBg);
+    m_hCardBorderPen = CreatePen(PS_SOLID, 1, m_theme.cardBorder);
 
     if (m_hWnd) {
         SetClassLongPtrW(m_hWnd, GCLP_HBRBACKGROUND, (LONG_PTR)m_hBgBrush);
         ApplyDwmDarkMode(m_isDark);
+
+        HMODULE hUx = GetModuleHandleW(L"uxtheme.dll");
+        if (!hUx) hUx = LoadLibraryW(L"uxtheme.dll");
+        if (hUx) {
+            typedef INT (WINAPI *fnSetPreferredAppMode)(INT);
+            typedef BOOL (WINAPI *fnAllowDarkModeForWindow)(HWND, BOOL);
+            typedef VOID (WINAPI *fnRefreshImmersiveColorPolicyState)();
+            typedef VOID (WINAPI *fnFlushMenuThemes)();
+
+            fnSetPreferredAppMode pfnSetPreferredAppMode = (fnSetPreferredAppMode)GetProcAddress(hUx, MAKEINTRESOURCEA(135));
+            fnAllowDarkModeForWindow pfnAllowDarkModeForWindow = (fnAllowDarkModeForWindow)GetProcAddress(hUx, MAKEINTRESOURCEA(133));
+            fnRefreshImmersiveColorPolicyState pfnRefreshPolicy = (fnRefreshImmersiveColorPolicyState)GetProcAddress(hUx, MAKEINTRESOURCEA(104));
+            fnFlushMenuThemes pfnFlushMenu = (fnFlushMenuThemes)GetProcAddress(hUx, MAKEINTRESOURCEA(136));
+
+            if (pfnSetPreferredAppMode) pfnSetPreferredAppMode(m_isDark ? 2 : 3);
+            if (pfnRefreshPolicy) pfnRefreshPolicy();
+            if (pfnAllowDarkModeForWindow) {
+                pfnAllowDarkModeForWindow(m_hWnd, m_isDark);
+                HWND hChild = GetWindow(m_hWnd, GW_CHILD);
+                while (hChild) {
+                    pfnAllowDarkModeForWindow(hChild, m_isDark);
+                    hChild = GetWindow(hChild, GW_HWNDNEXT);
+                }
+            }
+            if (pfnFlushMenu) pfnFlushMenu();
+        }
 
         const wchar_t* themeName = m_isDark ? L"DarkMode_Explorer" : L"Explorer";
         const wchar_t* cfdTheme = m_isDark ? L"DarkMode_CFD" : L"Explorer";
@@ -164,8 +210,10 @@ void MainWindow::ApplyTheme(bool isDark) {
         if (m_hBtnLock) SetWindowTheme(m_hBtnLock, themeName, NULL);
         if (m_hBtnScreenshot) SetWindowTheme(m_hBtnScreenshot, themeName, NULL);
 
+        if (m_hCheckEnableLogging) SetWindowTheme(m_hCheckEnableLogging, themeName, NULL);
         if (m_hBtnCopyLogs) SetWindowTheme(m_hBtnCopyLogs, themeName, NULL);
         if (m_hBtnClearLogs) SetWindowTheme(m_hBtnClearLogs, themeName, NULL);
+        if (m_hEditLogs) SetWindowTheme(m_hEditLogs, themeName, NULL);
 
         RedrawWindow(m_hWnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
     }
@@ -256,208 +304,224 @@ void MainWindow::Show(int nCmdShow) {
 }
 
 void MainWindow::ApplyModernFonts() {
-    m_hFontTitle = CreateFontW(-20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+    m_hFontTitle = CreateFontW(-22, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-        DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+        DEFAULT_PITCH | FF_SWISS, L"Segoe UI Variable Display");
 
-    m_hFontBold = CreateFontW(-14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+    m_hFontBold = CreateFontW(-14, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-        DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+        DEFAULT_PITCH | FF_SWISS, L"Segoe UI Variable Text");
 
     m_hFontNormal = CreateFontW(-13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-        DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+        DEFAULT_PITCH | FF_SWISS, L"Segoe UI Variable Text");
 
-    m_hFontStatus = CreateFontW(-14, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+    m_hFontStatus = CreateFontW(-13, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-        DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+        DEFAULT_PITCH | FF_SWISS, L"Segoe UI Variable Text");
 
     m_hFontLog = CreateFontW(-12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-        FIXED_PITCH | FF_MODERN, L"Consolas");
+        FIXED_PITCH | FF_MODERN, L"Cascadia Code");
+}
+
+void MainWindow::DrawCards(HDC hdc) {
+    int padX = 20;
+    int cardW = 504;
+
+    HGDIOBJ oldPen = SelectObject(hdc, m_hCardBorderPen);
+    HGDIOBJ oldBrush = SelectObject(hdc, m_hCardBrush);
+
+    // Card 1: Connection & Pairing
+    RoundRect(hdc, padX, 106, padX + cardW, 296, 12, 12);
+
+    // Card 2: Input Redirection
+    RoundRect(hdc, padX, 306, padX + cardW, 456, 12, 12);
+
+    // Card 3: Quick Phone Actions
+    RoundRect(hdc, padX, 466, padX + cardW, 626, 12, 12);
+
+    SelectObject(hdc, oldPen);
+    SelectObject(hdc, oldBrush);
 }
 
 void MainWindow::CreateControls() {
-    int padX = 25;
-    int curY = 16;
+    int padX = 20;
+    int cardW = 504;
+    int curY = 14;
 
     // Title label
     HWND hTitle = CreateWindowExW(0, L"STATIC", L"Lapdroid",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        padX, curY, 500, 26, m_hWnd, NULL, m_hInstance, NULL);
+        padX, curY, 340, 28, m_hWnd, NULL, m_hInstance, NULL);
     SendMessageW(hTitle, WM_SETFONT, (WPARAM)m_hFontTitle, TRUE);
-    curY += 28;
+    curY += 30;
 
     // Subtitle label
-    HWND hSub = CreateWindowExW(0, L"STATIC", L"Control your Android phone with laptop keyboard & touchpad over Bluetooth",
+    HWND hSub = CreateWindowExW(0, L"STATIC", L"Share keyboard, mouse pointer and stylus seamlessly between Windows & Android",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        padX, curY, 500, 18, m_hWnd, NULL, m_hInstance, NULL);
+        padX, curY, cardW, 18, m_hWnd, NULL, m_hInstance, NULL);
     SendMessageW(hSub, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
-    curY += 26;
+    curY += 24;
 
-    // Top Tab Control
+    // Top Tab Control with TCS_OWNERDRAWFIXED
     m_hTabMain = CreateWindowExW(0, WC_TABCONTROLW, L"",
-        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | TCS_TABS,
-        padX, curY, 495, 30, m_hWnd, (HMENU)IDC_TAB_MAIN, m_hInstance, NULL);
+        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | TCS_TABS | TCS_OWNERDRAWFIXED,
+        padX, curY, cardW, 30, m_hWnd, (HMENU)IDC_TAB_MAIN, m_hInstance, NULL);
     SendMessageW(m_hTabMain, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
 
     TCITEMW tie;
     tie.mask = TCIF_TEXT;
-    tie.pszText = (LPWSTR)L"Controls";
+    tie.pszText = (LPWSTR)L"Controls & Actions";
     TabCtrl_InsertItem(m_hTabMain, 0, &tie);
     tie.pszText = (LPWSTR)L"Activity & Logs";
     TabCtrl_InsertItem(m_hTabMain, 1, &tie);
 
-    curY += 38;
-    int contentStartY = curY;
-
     // ================= CONTROLS TAB CONTENT =================
-    // Card 1: Connection Mode
-    HWND hModeLabel = CreateWindowExW(0, L"STATIC", L"1. Connection Mode & Pairing",
+    // Card 1: Connection & Pairing
+    int c1Y = 116;
+    HWND hModeLabel = CreateWindowExW(0, L"STATIC", L"1. Connection Mode & Bluetooth Pairing",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        padX, curY, 495, 20, m_hWnd, NULL, m_hInstance, NULL);
+        padX + 14, c1Y, cardW - 28, 20, m_hWnd, NULL, m_hInstance, NULL);
     SendMessageW(hModeLabel, WM_SETFONT, (WPARAM)m_hFontBold, TRUE);
     m_controlsTabHwnds.push_back(hModeLabel);
-    curY += 24;
+    c1Y += 24;
 
     m_hRadioServer = CreateWindowExW(0, L"BUTTON", L"",
         WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON | WS_GROUP,
-        padX + 10, curY + 2, 20, 20, m_hWnd, (HMENU)IDC_RADIO_SERVER, m_hInstance, NULL);
-    m_hLabelRadioServer = CreateWindowExW(0, L"STATIC", L"Server Mode (Wait for Android phone to connect)",
+        padX + 16, c1Y, 18, 18, m_hWnd, (HMENU)IDC_RADIO_SERVER, m_hInstance, NULL);
+    m_hLabelRadioServer = CreateWindowExW(0, L"STATIC", L"Server Mode (Wait for Android phone to connect wirelessly)",
         WS_CHILD | WS_VISIBLE | SS_NOTIFY,
-        padX + 34, curY + 2, 450, 20, m_hWnd, (HMENU)IDC_LABEL_RADIO_SERVER, m_hInstance, NULL);
+        padX + 38, c1Y, cardW - 54, 18, m_hWnd, (HMENU)IDC_LABEL_RADIO_SERVER, m_hInstance, NULL);
     SendMessageW(m_hLabelRadioServer, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     m_controlsTabHwnds.push_back(m_hRadioServer);
     m_controlsTabHwnds.push_back(m_hLabelRadioServer);
-    curY += 26;
+    c1Y += 22;
 
     m_hRadioClient = CreateWindowExW(0, L"BUTTON", L"",
         WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON,
-        padX + 10, curY + 2, 20, 20, m_hWnd, (HMENU)IDC_RADIO_CLIENT, m_hInstance, NULL);
-    m_hLabelRadioClient = CreateWindowExW(0, L"STATIC", L"Client Mode (Connect to paired Android phone)",
+        padX + 16, c1Y, 18, 18, m_hWnd, (HMENU)IDC_RADIO_CLIENT, m_hInstance, NULL);
+    m_hLabelRadioClient = CreateWindowExW(0, L"STATIC", L"Client Mode (Initiate connection to paired Android phone)",
         WS_CHILD | WS_VISIBLE | SS_NOTIFY,
-        padX + 34, curY + 2, 450, 20, m_hWnd, (HMENU)IDC_LABEL_RADIO_CLIENT, m_hInstance, NULL);
+        padX + 38, c1Y, cardW - 54, 18, m_hWnd, (HMENU)IDC_LABEL_RADIO_CLIENT, m_hInstance, NULL);
     SendMessageW(m_hLabelRadioClient, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     Button_SetCheck(m_hRadioServer, BST_CHECKED);
     m_controlsTabHwnds.push_back(m_hRadioClient);
     m_controlsTabHwnds.push_back(m_hLabelRadioClient);
-    curY += 30;
+    c1Y += 24;
 
     // Device dropdown and refresh button
     m_hComboDevices = CreateWindowExW(0, L"COMBOBOX", L"",
         WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP,
-        padX + 10, curY, 360, 200, m_hWnd, (HMENU)IDC_COMBO_DEVICES, m_hInstance, NULL);
+        padX + 14, c1Y, cardW - 146, 200, m_hWnd, (HMENU)IDC_COMBO_DEVICES, m_hInstance, NULL);
     SendMessageW(m_hComboDevices, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
 
-    m_hBtnRefresh = CreateWindowExW(0, L"BUTTON", L"Refresh Devices",
+    m_hBtnRefresh = CreateWindowExW(0, L"BUTTON", L"Refresh",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        padX + 380, curY - 1, 105, 28, m_hWnd, (HMENU)IDC_BTN_REFRESH, m_hInstance, NULL);
+        padX + cardW - 124, c1Y - 1, 110, 26, m_hWnd, (HMENU)IDC_BTN_REFRESH, m_hInstance, NULL);
     SendMessageW(m_hBtnRefresh, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     m_controlsTabHwnds.push_back(m_hComboDevices);
     m_controlsTabHwnds.push_back(m_hBtnRefresh);
-    curY += 36;
+    c1Y += 32;
 
     // Connect / Disconnect button
     m_hBtnConnect = CreateWindowExW(0, L"BUTTON", L"Start Bluetooth Server",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        padX + 10, curY, 475, 36, m_hWnd, (HMENU)IDC_BTN_CONNECT, m_hInstance, NULL);
+        padX + 14, c1Y, cardW - 28, 34, m_hWnd, (HMENU)IDC_BTN_CONNECT, m_hInstance, NULL);
     SendMessageW(m_hBtnConnect, WM_SETFONT, (WPARAM)m_hFontBold, TRUE);
     m_controlsTabHwnds.push_back(m_hBtnConnect);
-    curY += 44;
+    c1Y += 40;
 
-    // Status label
-    m_hStatusText = CreateWindowExW(0, L"STATIC", L"Status: Ready (Disconnected)",
+    // Status labels
+    m_hStatusText = CreateWindowExW(0, L"STATIC", L"● Status: Ready (Disconnected)",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        padX + 10, curY, 475, 20, m_hWnd, (HMENU)IDC_STATUS_TEXT, m_hInstance, NULL);
+        padX + 14, c1Y, (cardW - 28) / 2, 18, m_hWnd, (HMENU)IDC_STATUS_TEXT, m_hInstance, NULL);
     SendMessageW(m_hStatusText, WM_SETFONT, (WPARAM)m_hFontStatus, TRUE);
     m_controlsTabHwnds.push_back(m_hStatusText);
-    curY += 22;
 
     std::wstring stylusStatus = m_stylusInjector.IsPenDeviceActive()
-        ? L"Stylus / Ink: Active (Windows Ink PT_PEN with pressure)"
-        : L"Stylus / Ink: Ready (Mouse fallback mode)";
+        ? L"Stylus: Windows Ink Active"
+        : L"Stylus: Touch/Mouse Mode";
     m_hLabelStylusStatus = CreateWindowExW(0, L"STATIC", stylusStatus.c_str(),
-        WS_CHILD | WS_VISIBLE | SS_LEFT,
-        padX + 10, curY, 475, 18, m_hWnd, NULL, m_hInstance, NULL);
+        WS_CHILD | WS_VISIBLE | SS_RIGHT,
+        padX + 14 + (cardW - 28) / 2, c1Y, (cardW - 28) / 2, 18, m_hWnd, NULL, m_hInstance, NULL);
     SendMessageW(m_hLabelStylusStatus, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     m_controlsTabHwnds.push_back(m_hLabelStylusStatus);
-    curY += 24;
 
     // Card 2: Input Redirection
+    int c2Y = 316;
     HWND hInputLabel = CreateWindowExW(0, L"STATIC", L"2. Input Redirection",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        padX, curY, 495, 20, m_hWnd, NULL, m_hInstance, NULL);
+        padX + 14, c2Y, cardW - 28, 20, m_hWnd, NULL, m_hInstance, NULL);
     SendMessageW(hInputLabel, WM_SETFONT, (WPARAM)m_hFontBold, TRUE);
     m_controlsTabHwnds.push_back(hInputLabel);
-    curY += 24;
+    c2Y += 24;
 
     m_hBtnToggleCapture = CreateWindowExW(0, L"BUTTON", L"Capture Input for Android Phone (Hotkey: F12)",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        padX + 10, curY, 475, 40, m_hWnd, (HMENU)IDC_BTN_TOGGLE_CAPTURE, m_hInstance, NULL);
+        padX + 14, c2Y, cardW - 28, 36, m_hWnd, (HMENU)IDC_BTN_TOGGLE_CAPTURE, m_hInstance, NULL);
     SendMessageW(m_hBtnToggleCapture, WM_SETFONT, (WPARAM)m_hFontBold, TRUE);
     m_controlsTabHwnds.push_back(m_hBtnToggleCapture);
-    curY += 48;
+    c2Y += 42;
 
     // Sensitivity slider
     m_hLabelSensitivity = CreateWindowExW(0, L"STATIC", L"Touchpad Sensitivity: 1.0x",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        padX + 10, curY, 200, 20, m_hWnd, (HMENU)IDC_LABEL_SENSITIVITY, m_hInstance, NULL);
+        padX + 14, c2Y + 4, 190, 18, m_hWnd, (HMENU)IDC_LABEL_SENSITIVITY, m_hInstance, NULL);
     SendMessageW(m_hLabelSensitivity, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
 
     m_hSliderSensitivity = CreateWindowExW(0, TRACKBAR_CLASSW, L"",
         WS_CHILD | WS_VISIBLE | TBS_AUTOTICKS | TBS_ENABLESELRANGE,
-        padX + 220, curY - 4, 265, 30, m_hWnd, (HMENU)IDC_SLIDER_SENSITIVITY, m_hInstance, NULL);
+        padX + 210, c2Y, cardW - 224, 26, m_hWnd, (HMENU)IDC_SLIDER_SENSITIVITY, m_hInstance, NULL);
     SendMessageW(m_hSliderSensitivity, TBM_SETRANGE, TRUE, MAKELPARAM(5, 30));
     SendMessageW(m_hSliderSensitivity, TBM_SETPOS, TRUE, 10);
     m_controlsTabHwnds.push_back(m_hLabelSensitivity);
     m_controlsTabHwnds.push_back(m_hSliderSensitivity);
-    curY += 34;
+    c2Y += 30;
 
     // Hint label
     HWND hHint = CreateWindowExW(0, L"STATIC",
-        L"Tip: Press F12 to capture/release. Tricky keys forwarded: Esc (Back), Win (Home), Alt+Tab (Recents), PrintScreen (Screenshot), Ctrl+C/V/A/X/Z (Clipboard), and Volume/Media keys.",
+        L"Tip: Press F12 to capture/release. Tricky keys: Esc (Back), Win (Home), Alt+Tab (Recents), Ctrl+Enter (Send), PrintScreen, and Media/Volume keys.",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        padX + 10, curY, 475, 34, m_hWnd, NULL, m_hInstance, NULL);
+        padX + 14, c2Y, cardW - 28, 32, m_hWnd, NULL, m_hInstance, NULL);
     SendMessageW(hHint, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     m_controlsTabHwnds.push_back(hHint);
-    curY += 40;
 
-    // Card 3: Phone Remote Quick Actions
-    HWND hActionLabel = CreateWindowExW(0, L"STATIC", L"3. Quick Phone Actions",
+    // Card 3: Quick Phone Actions
+    int c3Y = 476;
+    HWND hActionLabel = CreateWindowExW(0, L"STATIC", L"3. Quick Phone Actions & Navigation",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        padX, curY, 495, 20, m_hWnd, NULL, m_hInstance, NULL);
+        padX + 14, c3Y, cardW - 28, 20, m_hWnd, NULL, m_hInstance, NULL);
     SendMessageW(hActionLabel, WM_SETFONT, (WPARAM)m_hFontBold, TRUE);
     m_controlsTabHwnds.push_back(hActionLabel);
-    curY += 24;
+    c3Y += 26;
 
-    int btnW = 90;
-    int gap = 6;
-    int row1X = padX + 10;
+    int btnW = 88;
+    int gap = 9;
+    int row1X = padX + 14;
 
-    // Row 1: System Navigation & Lock
-    m_hBtnBack = CreateWindowExW(0, L"BUTTON", L"Back", WS_CHILD | WS_VISIBLE, row1X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_BACK, m_hInstance, NULL);
+    m_hBtnBack = CreateWindowExW(0, L"BUTTON", L"Back", WS_CHILD | WS_VISIBLE, row1X, c3Y, btnW, 26, m_hWnd, (HMENU)IDC_BTN_ACT_BACK, m_hInstance, NULL);
     row1X += btnW + gap;
-    m_hBtnHome = CreateWindowExW(0, L"BUTTON", L"Home", WS_CHILD | WS_VISIBLE, row1X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_HOME, m_hInstance, NULL);
+    m_hBtnHome = CreateWindowExW(0, L"BUTTON", L"Home", WS_CHILD | WS_VISIBLE, row1X, c3Y, btnW, 26, m_hWnd, (HMENU)IDC_BTN_ACT_HOME, m_hInstance, NULL);
     row1X += btnW + gap;
-    m_hBtnRecents = CreateWindowExW(0, L"BUTTON", L"Recents", WS_CHILD | WS_VISIBLE, row1X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_RECENTS, m_hInstance, NULL);
+    m_hBtnRecents = CreateWindowExW(0, L"BUTTON", L"Recents", WS_CHILD | WS_VISIBLE, row1X, c3Y, btnW, 26, m_hWnd, (HMENU)IDC_BTN_ACT_RECENTS, m_hInstance, NULL);
     row1X += btnW + gap;
-    m_hBtnNotif = CreateWindowExW(0, L"BUTTON", L"Notif", WS_CHILD | WS_VISIBLE, row1X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_NOTIF, m_hInstance, NULL);
+    m_hBtnNotif = CreateWindowExW(0, L"BUTTON", L"Notif", WS_CHILD | WS_VISIBLE, row1X, c3Y, btnW, 26, m_hWnd, (HMENU)IDC_BTN_ACT_NOTIF, m_hInstance, NULL);
     row1X += btnW + gap;
-    m_hBtnLock = CreateWindowExW(0, L"BUTTON", L"Lock", WS_CHILD | WS_VISIBLE, row1X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_LOCK, m_hInstance, NULL);
-    curY += 32;
+    m_hBtnLock = CreateWindowExW(0, L"BUTTON", L"Lock", WS_CHILD | WS_VISIBLE, row1X, c3Y, btnW, 26, m_hWnd, (HMENU)IDC_BTN_ACT_LOCK, m_hInstance, NULL);
+    c3Y += 32;
 
-    int row2X = padX + 10;
-    // Row 2: Media, Volume & Screenshot
-    m_hBtnVolDown = CreateWindowExW(0, L"BUTTON", L"Vol -", WS_CHILD | WS_VISIBLE, row2X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_VOLDOWN, m_hInstance, NULL);
+    int row2X = padX + 14;
+    m_hBtnVolDown = CreateWindowExW(0, L"BUTTON", L"Vol -", WS_CHILD | WS_VISIBLE, row2X, c3Y, btnW, 26, m_hWnd, (HMENU)IDC_BTN_ACT_VOLDOWN, m_hInstance, NULL);
     row2X += btnW + gap;
-    m_hBtnVolUp = CreateWindowExW(0, L"BUTTON", L"Vol +", WS_CHILD | WS_VISIBLE, row2X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_VOLUP, m_hInstance, NULL);
+    m_hBtnVolUp = CreateWindowExW(0, L"BUTTON", L"Vol +", WS_CHILD | WS_VISIBLE, row2X, c3Y, btnW, 26, m_hWnd, (HMENU)IDC_BTN_ACT_VOLUP, m_hInstance, NULL);
     row2X += btnW + gap;
-    m_hBtnMute = CreateWindowExW(0, L"BUTTON", L"Mute", WS_CHILD | WS_VISIBLE, row2X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_MUTE, m_hInstance, NULL);
+    m_hBtnMute = CreateWindowExW(0, L"BUTTON", L"Mute", WS_CHILD | WS_VISIBLE, row2X, c3Y, btnW, 26, m_hWnd, (HMENU)IDC_BTN_ACT_MUTE, m_hInstance, NULL);
     row2X += btnW + gap;
-    m_hBtnPlay = CreateWindowExW(0, L"BUTTON", L"Play/Pause", WS_CHILD | WS_VISIBLE, row2X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_PLAY, m_hInstance, NULL);
+    m_hBtnPlay = CreateWindowExW(0, L"BUTTON", L"Play/Pause", WS_CHILD | WS_VISIBLE, row2X, c3Y, btnW, 26, m_hWnd, (HMENU)IDC_BTN_ACT_PLAY, m_hInstance, NULL);
     row2X += btnW + gap;
-    m_hBtnScreenshot = CreateWindowExW(0, L"BUTTON", L"Screenshot", WS_CHILD | WS_VISIBLE, row2X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_SCREENSHOT, m_hInstance, NULL);
-    curY += 36;
+    m_hBtnScreenshot = CreateWindowExW(0, L"BUTTON", L"Screenshot", WS_CHILD | WS_VISIBLE, row2X, c3Y, btnW, 26, m_hWnd, (HMENU)IDC_BTN_ACT_SCREENSHOT, m_hInstance, NULL);
+    c3Y += 34;
 
     SendMessageW(m_hBtnBack, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     SendMessageW(m_hBtnHome, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
@@ -482,38 +546,49 @@ void MainWindow::CreateControls() {
     m_controlsTabHwnds.push_back(m_hBtnScreenshot);
 
     // Minimize to System Tray button
-    m_hBtnMinimizeTray = CreateWindowExW(0, L"BUTTON", L"Hide to System Tray (Keep Running)",
+    m_hBtnMinimizeTray = CreateWindowExW(0, L"BUTTON", L"Hide to System Tray (Keep Running in Background)",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        padX + 10, curY, 475, 32, m_hWnd, (HMENU)IDC_BTN_MINIMIZE_TRAY, m_hInstance, NULL);
+        padX + 14, c3Y, cardW - 28, 30, m_hWnd, (HMENU)IDC_BTN_MINIMIZE_TRAY, m_hInstance, NULL);
     SendMessageW(m_hBtnMinimizeTray, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     m_controlsTabHwnds.push_back(m_hBtnMinimizeTray);
 
     // ================= LOGS TAB CONTENT =================
-    int logY = contentStartY;
-    m_hEditLogs = CreateWindowExW(
-        WS_EX_CLIENTEDGE, L"EDIT", L"",
-        WS_CHILD | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_HSCROLL,
-        padX, logY, 495, 485, m_hWnd, (HMENU)IDC_EDIT_LOGS, m_hInstance, NULL
-    );
-    SendMessageW(m_hEditLogs, WM_SETFONT, (WPARAM)m_hFontLog, TRUE);
-    m_logsTabHwnds.push_back(m_hEditLogs);
-    logY += 495;
+    int logTopY = 106;
+    m_hCheckEnableLogging = CreateWindowExW(0, L"BUTTON", L"Enable Diagnostic Logging",
+        WS_CHILD | BS_AUTOCHECKBOX | WS_TABSTOP,
+        padX + 2, logTopY + 2, 230, 24, m_hWnd, (HMENU)IDC_CHECK_ENABLE_LOGGING, m_hInstance, NULL);
+    SendMessageW(m_hCheckEnableLogging, WM_SETFONT, (WPARAM)m_hFontBold, TRUE);
+    Button_SetCheck(m_hCheckEnableLogging, Logger::Instance().IsLoggingEnabled() ? BST_CHECKED : BST_UNCHECKED);
+    m_logsTabHwnds.push_back(m_hCheckEnableLogging);
 
-    m_hBtnCopyLogs = CreateWindowExW(0, L"BUTTON", L"Copy Logs to Clipboard",
+    m_hBtnCopyLogs = CreateWindowExW(0, L"BUTTON", L"Copy Logs",
         WS_CHILD | BS_PUSHBUTTON,
-        padX, logY, 240, 32, m_hWnd, (HMENU)IDC_BTN_COPY_LOGS, m_hInstance, NULL);
+        padX + cardW - 216, logTopY, 104, 28, m_hWnd, (HMENU)IDC_BTN_COPY_LOGS, m_hInstance, NULL);
     SendMessageW(m_hBtnCopyLogs, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     m_logsTabHwnds.push_back(m_hBtnCopyLogs);
 
     m_hBtnClearLogs = CreateWindowExW(0, L"BUTTON", L"Clear Logs",
         WS_CHILD | BS_PUSHBUTTON,
-        padX + 255, logY, 240, 32, m_hWnd, (HMENU)IDC_BTN_CLEAR_LOGS, m_hInstance, NULL);
+        padX + cardW - 104, logTopY, 104, 28, m_hWnd, (HMENU)IDC_BTN_CLEAR_LOGS, m_hInstance, NULL);
     SendMessageW(m_hBtnClearLogs, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     m_logsTabHwnds.push_back(m_hBtnClearLogs);
+
+    m_hEditLogs = CreateWindowExW(
+        WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_HSCROLL,
+        padX, logTopY + 36, cardW, 480, m_hWnd, (HMENU)IDC_EDIT_LOGS, m_hInstance, NULL
+    );
+    SendMessageW(m_hEditLogs, WM_SETFONT, (WPARAM)m_hFontLog, TRUE);
+    m_logsTabHwnds.push_back(m_hEditLogs);
 
     // Initial state: show Controls tab, hide Logs tab
     SwitchTab(0);
     OnModeChanged();
+}
+
+void MainWindow::OnToggleLogging() {
+    bool isChecked = (Button_GetCheck(m_hCheckEnableLogging) == BST_CHECKED);
+    Logger::Instance().SetLoggingEnabled(isChecked);
 }
 
 void MainWindow::SwitchTab(int tabIndex) {
@@ -527,6 +602,7 @@ void MainWindow::SwitchTab(int tabIndex) {
     if (!showControls) {
         UpdateLogView();
     }
+    InvalidateRect(m_hWnd, NULL, TRUE);
 }
 
 void MainWindow::OnCopyLogs() {
@@ -821,12 +897,58 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
     }
 
     switch (msg) {
-        case WM_SETTINGCHANGE: {
-            if (lParam && wcscmp((LPCWSTR)lParam, L"ImmersiveColorSet") == 0) {
-                bool newDark = DetectWindowsDarkMode();
-                if (newDark != m_isDark) {
-                    ApplyTheme(newDark);
+        case WM_SETTINGCHANGE:
+        case WM_THEMECHANGED: {
+            bool newDark = DetectWindowsDarkMode();
+            if (newDark != m_isDark) {
+                ApplyTheme(newDark);
+            }
+            break;
+        }
+
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hWnd, &ps);
+            if (TabCtrl_GetCurSel(m_hTabMain) == 0) {
+                DrawCards(hdc);
+            }
+            EndPaint(hWnd, &ps);
+            return 0;
+        }
+
+        case WM_DRAWITEM: {
+            DRAWITEMSTRUCT* pDIS = (DRAWITEMSTRUCT*)lParam;
+            if (pDIS && pDIS->CtlType == ODT_TAB && pDIS->hwndItem == m_hTabMain) {
+                int tabIndex = pDIS->itemID;
+                bool isSelected = (TabCtrl_GetCurSel(m_hTabMain) == tabIndex);
+
+                RECT rc = pDIS->rcItem;
+                InflateRect(&rc, -2, -2);
+
+                HBRUSH hPillBrush = isSelected ? m_hCardBrush : (HBRUSH)GetStockObject(NULL_BRUSH);
+                HPEN hPillPen = isSelected ? m_hCardBorderPen : (HPEN)GetStockObject(NULL_PEN);
+                HGDIOBJ oldP = SelectObject(pDIS->hDC, hPillPen);
+                HGDIOBJ oldB = SelectObject(pDIS->hDC, hPillBrush);
+
+                if (isSelected) {
+                    RoundRect(pDIS->hDC, rc.left, rc.top, rc.right, rc.bottom, 8, 8);
                 }
+
+                SelectObject(pDIS->hDC, oldP);
+                SelectObject(pDIS->hDC, oldB);
+
+                wchar_t textBuf[64] = {0};
+                TCITEMW tci;
+                tci.mask = TCIF_TEXT;
+                tci.pszText = textBuf;
+                tci.cchTextMax = 63;
+                TabCtrl_GetItem(m_hTabMain, tabIndex, &tci);
+
+                SetBkMode(pDIS->hDC, TRANSPARENT);
+                SetTextColor(pDIS->hDC, isSelected ? m_theme.textTitle : m_theme.textMuted);
+                SelectObject(pDIS->hDC, isSelected ? m_hFontBold : m_hFontNormal);
+                DrawTextW(pDIS->hDC, textBuf, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+                return TRUE;
             }
             break;
         }
@@ -887,6 +1009,12 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 
                 case IDC_BTN_CLEAR_LOGS:
                     OnClearLogs();
+                    break;
+
+                case IDC_CHECK_ENABLE_LOGGING:
+                    if (wmEvent == BN_CLICKED) {
+                        OnToggleLogging();
+                    }
                     break;
 
                 case IDC_BTN_MINIMIZE_TRAY:
@@ -1027,8 +1155,22 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
                 } else {
                     SetTextColor(hdcStatic, m_theme.textMuted);
                 }
+            } else if (hCtrl == m_hLabelStylusStatus) {
+                SetTextColor(hdcStatic, m_stylusInjector.IsPenDeviceActive() ? m_theme.statusSuccess : m_theme.textMuted);
+            } else if (hCtrl == m_hCheckEnableLogging) {
+                SetTextColor(hdcStatic, m_theme.text);
+                return (INT_PTR)m_hBgBrush;
             } else {
                 SetTextColor(hdcStatic, m_theme.text);
+            }
+
+            RECT rc;
+            GetWindowRect(hCtrl, &rc);
+            POINT pt = { rc.left, rc.top };
+            ScreenToClient(hWnd, &pt);
+
+            if (TabCtrl_GetCurSel(m_hTabMain) == 0 && pt.y >= 106) {
+                return (INT_PTR)m_hCardBrush;
             }
             return (INT_PTR)m_hBgBrush;
         }
@@ -1040,7 +1182,7 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
             HDC hdc = (HDC)wParam;
             SetBkMode(hdc, TRANSPARENT);
             SetTextColor(hdc, m_theme.text);
-            return (INT_PTR)m_hBgBrush;
+            return (INT_PTR)m_hCardBrush;
         }
 
         case WM_CTLCOLOREDIT: {
@@ -1049,7 +1191,7 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
             if (hCtrl == m_hEditLogs) {
                 SetBkMode(hdc, OPAQUE);
                 SetBkColor(hdc, m_theme.inputBg);
-                SetTextColor(hdc, m_isDark ? RGB(126, 231, 135) : RGB(20, 110, 40));
+                SetTextColor(hdc, m_isDark ? RGB(140, 235, 150) : RGB(16, 120, 32));
                 return (INT_PTR)m_hLogBgBrush;
             }
             SetBkMode(hdc, OPAQUE);

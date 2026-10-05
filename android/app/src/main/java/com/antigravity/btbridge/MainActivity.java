@@ -220,7 +220,8 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         mBtnModeClient.setOnClickListener(v -> setServerMode(false));
 
         // Device adapter for client mode
-        mDeviceAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item);
+        mDeviceAdapter = new ArrayAdapter<>(this, R.layout.m3_spinner_item);
+        mDeviceAdapter.setDropDownViewResource(R.layout.m3_spinner_dropdown_item);
         mSpPairedDevices.setAdapter(mDeviceAdapter);
         mBtnRefreshDevices.setOnClickListener(v -> refreshPairedDevices());
 
@@ -318,6 +319,15 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
             AppLogger.clearLogs();
             Toast.makeText(this, "Logs cleared", Toast.LENGTH_SHORT).show();
         });
+
+        Switch swEnableLogging = findViewById(R.id.sw_enable_logging);
+        if (swEnableLogging != null) {
+            swEnableLogging.setChecked(AppLogger.isLoggingEnabled());
+            swEnableLogging.setOnCheckedChangeListener((btn, isChecked) -> {
+                AppLogger.setLoggingEnabled(isChecked);
+                Toast.makeText(this, isChecked ? "Live logging enabled" : "Live logging paused", Toast.LENGTH_SHORT).show();
+            });
+        }
 
         // Register logger listener
         AppLogger.addListener(this);
@@ -435,7 +445,8 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
             "Always Insert Newline (\\n)",
             "Always Submit / Send Action"
         };
-        ArrayAdapter<String> enterAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, enterModes);
+        ArrayAdapter<String> enterAdapter = new ArrayAdapter<>(this, R.layout.m3_spinner_item, enterModes);
+        enterAdapter.setDropDownViewResource(R.layout.m3_spinner_dropdown_item);
         mSpEnterMode.setAdapter(enterAdapter);
         mSpEnterMode.setSelection(settings.getEnterMode());
         mSpEnterMode.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -452,7 +463,8 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
             "Insert 4 Spaces",
             "Insert Tab Character (\\t)"
         };
-        ArrayAdapter<String> tabAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, tabModes);
+        ArrayAdapter<String> tabAdapter = new ArrayAdapter<>(this, R.layout.m3_spinner_item, tabModes);
+        tabAdapter.setDropDownViewResource(R.layout.m3_spinner_dropdown_item);
         mSpTabMode.setAdapter(tabAdapter);
         mSpTabMode.setSelection(settings.getTabMode());
         mSpTabMode.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -469,7 +481,8 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
             "Open Notification Shade",
             "Open Recent Apps Switcher"
         };
-        ArrayAdapter<String> winAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, winActions);
+        ArrayAdapter<String> winAdapter = new ArrayAdapter<>(this, R.layout.m3_spinner_item, winActions);
+        winAdapter.setDropDownViewResource(R.layout.m3_spinner_dropdown_item);
         mSpWinAction.setAdapter(winAdapter);
         mSpWinAction.setSelection(settings.getWinAction());
         mSpWinAction.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {

@@ -18,6 +18,8 @@ public:
     static Logger& Instance();
 
     void SetHwnd(HWND hWnd);
+    void SetLoggingEnabled(bool enabled);
+    bool IsLoggingEnabled() const;
     void Log(LogLevel level, const std::wstring& tag, const std::wstring& message);
     std::wstring GetAllLogs();
     void Clear();
@@ -29,7 +31,8 @@ private:
     Logger& operator=(const Logger&) = delete;
 
     HWND m_hWnd;
-    std::mutex m_mutex;
+    bool m_loggingEnabled;
+    mutable std::mutex m_mutex;
     std::vector<std::wstring> m_logs;
     static const size_t MAX_LOG_ENTRIES = 800;
 };

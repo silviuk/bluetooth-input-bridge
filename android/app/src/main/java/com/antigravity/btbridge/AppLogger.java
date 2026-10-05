@@ -24,6 +24,16 @@ public class AppLogger {
     private static final List<LogListener> sListeners = new ArrayList<>();
     private static final Handler sMainHandler = new Handler(Looper.getMainLooper());
     private static final SimpleDateFormat sDateFormat = new SimpleDateFormat("HH:mm:ss.SSS", Locale.US);
+    private static volatile boolean sLoggingEnabled = true;
+
+    public static void setLoggingEnabled(boolean enabled) {
+        sLoggingEnabled = enabled;
+        log("INFO", "AppLogger", enabled ? "Diagnostic logging enabled" : "Diagnostic logging paused");
+    }
+
+    public static boolean isLoggingEnabled() {
+        return sLoggingEnabled;
+    }
 
     public static synchronized void i(String tag, String msg) {
         log("INFO", tag, msg);
@@ -52,6 +62,10 @@ public class AppLogger {
     }
 
     private static synchronized void log(String level, String tag, String msg) {
+        if (!sLoggingEnabled && !"AppLogger".equals(tag)) {
+            return;
+        }
+
         String timestamp = sDateFormat.format(new Date());
         String entry = String.format(Locale.US, "[%s] [%s] [%s] %s", timestamp, level, tag, msg);
 

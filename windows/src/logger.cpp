@@ -10,6 +10,7 @@ Logger& Logger::Instance() {
 
 Logger::Logger()
     : m_hWnd(NULL)
+    , m_loggingEnabled(true)
 {
 }
 
@@ -18,7 +19,26 @@ void Logger::SetHwnd(HWND hWnd) {
     m_hWnd = hWnd;
 }
 
+void Logger::SetLoggingEnabled(bool enabled) {
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_loggingEnabled = enabled;
+    }
+    Log(LogLevel::Info, L"AppLogger", enabled ? L"Live diagnostic logging enabled" : L"Live diagnostic logging paused");
+}
+
+bool Logger::IsLoggingEnabled() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_loggingEnabled;
+}
+
 void Logger::Log(LogLevel level, const std::wstring& tag, const std::wstring& message) {
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (!m_loggingEnabled && tag != L"AppLogger" && tag != L"App") {
+            return;
+        }
+    }
     SYSTEMTIME st;
     GetLocalTime(&st);
 

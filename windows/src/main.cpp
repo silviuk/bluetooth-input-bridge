@@ -39,7 +39,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
         if (pfnSetPreferredAppMode) {
             pfnSetPreferredAppMode(1); // 1 = AllowDark
         }
-        FreeLibrary(hUxTheme);
     }
 
     BluetoothManager btManager;

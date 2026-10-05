@@ -14,6 +14,7 @@ struct ThemeColors {
     bool isDark;
     COLORREF bg;
     COLORREF cardBg;
+    COLORREF cardBorder;
     COLORREF inputBg;
     COLORREF text;
     COLORREF textMuted;
@@ -56,7 +57,9 @@ private:
     void SwitchTab(int tabIndex);
     void OnCopyLogs();
     void OnClearLogs();
+    void OnToggleLogging();
     void UpdateLogView();
+    void DrawCards(HDC hdc);
 
     // Command handlers
     void OnConnectButtonClicked();
@@ -108,6 +111,7 @@ private:
     HWND m_hEditLogs;
     HWND m_hBtnCopyLogs;
     HWND m_hBtnClearLogs;
+    HWND m_hCheckEnableLogging;
 
     // Fonts & Graphics
     HFONT m_hFontTitle;
@@ -119,6 +123,7 @@ private:
     HBRUSH m_hCardBrush;
     HBRUSH m_hInputBrush;
     HBRUSH m_hLogBgBrush;
+    HPEN m_hCardBorderPen;
     HICON m_hAppIcon;
     HICON m_hTrayIcon;
 

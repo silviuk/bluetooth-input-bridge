@@ -43,6 +43,7 @@
 #define IDC_EDIT_LOGS           321
 #define IDC_BTN_COPY_LOGS       322
 #define IDC_BTN_CLEAR_LOGS      323
+#define IDC_CHECK_ENABLE_LOGGING 327
 
 #define WM_TRAYNOTIFY           (WM_APP + 10)
 #define WM_APP_LOG_MESSAGE      (WM_APP + 30)
