@@ -53,6 +53,7 @@
             android:name=".DigitizerActivity"
             android:label="Lapdroid Graphics Tablet"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:screenOrientation="sensorLandscape"
             android:exported="false"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
 

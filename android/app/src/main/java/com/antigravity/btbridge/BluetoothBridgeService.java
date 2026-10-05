@@ -421,7 +421,6 @@ public class BluetoothBridgeService extends Service {
             if (mmOutStream == null || !mmRunning) return false;
             try {
                 mmOutStream.write(bytes);
-                mmOutStream.flush();
                 return true;
             } catch (Exception e) {
                 return false;

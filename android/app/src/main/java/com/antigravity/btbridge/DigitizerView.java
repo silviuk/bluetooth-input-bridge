@@ -130,12 +130,24 @@ public class DigitizerView extends View {
         int action = event.getActionMasked();
         int historySize = event.getHistorySize();
 
-        // Send batched intermediate points for maximum stroke smoothness
-        for (int i = 0; i < historySize; i++) {
-            float histX = event.getHistoricalX(0, i);
-            float histY = event.getHistoricalY(0, i);
-            float histPressure = event.getHistoricalPressure(0, i);
-            dispatchMotion(Protocol.STYLUS_MOVE, histX, histY, histPressure, event, false);
+        if (action == MotionEvent.ACTION_MOVE) {
+            // Send intermediate historical points to achieve ultra-smooth curves without packet saturation
+            float prevX = -1, prevY = -1;
+            for (int i = 0; i < historySize; i++) {
+                float histX = event.getHistoricalX(0, i);
+                float histY = event.getHistoricalY(0, i);
+                float histPressure = event.getHistoricalPressure(0, i);
+                if (prevX >= 0) {
+                    float dx = histX - prevX;
+                    float dy = histY - prevY;
+                    if ((dx * dx + dy * dy) < 4f) { // Skip micro-subpixel duplicates
+                        continue;
+                    }
+                }
+                prevX = histX;
+                prevY = histY;
+                dispatchMotion(Protocol.STYLUS_MOVE, histX, histY, histPressure, event, false);
+            }
         }
 
         switch (action) {
@@ -158,7 +170,7 @@ public class DigitizerView extends View {
                 break;
         }
 
-        invalidate();
+        postInvalidateOnAnimation();
         return true;
     }
 
@@ -172,14 +184,14 @@ public class DigitizerView extends View {
                 mIsHover = true;
                 mIsContact = false;
                 dispatchMotion(Protocol.STYLUS_HOVER, event.getX(), event.getY(), 0f, event, true);
-                invalidate();
+                postInvalidateOnAnimation();
                 return true;
 
             case MotionEvent.ACTION_HOVER_EXIT:
                 mIsHover = false;
                 mLastX = -1;
                 mLastY = -1;
-                invalidate();
+                postInvalidateOnAnimation();
                 return true;
         }
 
@@ -197,8 +209,25 @@ public class DigitizerView extends View {
         int normX = (int) Math.max(0, Math.min(65535, normXFloat * 65535f));
         int normY = (int) Math.max(0, Math.min(65535, normYFloat * 65535f));
 
-        // Pressure mapping: 0 to 1024
-        int pressureInt = (int) Math.max(0, Math.min(1024, rawPressure * 1024f));
+        // Pressure mapping with device calibration
+        float maxPressure = 1.0f;
+        try {
+            android.view.InputDevice dev = event.getDevice();
+            if (dev != null) {
+                android.view.InputDevice.MotionRange range = dev.getMotionRange(MotionEvent.AXIS_PRESSURE, event.getSource());
+                if (range != null && range.getMax() > 0) {
+                    maxPressure = range.getMax();
+                }
+            }
+        } catch (Exception ignored) {}
+
+        float normPressure = Math.max(0f, Math.min(1f, rawPressure / maxPressure));
+        int pressureInt = (int) (normPressure * 1024f);
+
+        // When in contact (DOWN or MOVE), ensure pressure is non-zero so Windows Ink detects the stroke
+        if ((stylusAction == Protocol.STYLUS_DOWN || stylusAction == Protocol.STYLUS_MOVE) && pressureInt < 32) {
+            pressureInt = 32;
+        }
 
         // Tilt angle
         float tiltRad = event.getAxisValue(MotionEvent.AXIS_TILT);
@@ -232,7 +261,7 @@ public class DigitizerView extends View {
         if (updateVisuals) {
             mLastX = x;
             mLastY = y;
-            mLastPressure = rawPressure;
+            mLastPressure = normPressure;
             mLastTiltDeg = tiltDeg;
             mIsBarrel = isBarrel;
             mIsEraser = isEraser;

@@ -88,7 +88,7 @@
             android:id="@+id/tv_telemetry_hud"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Stylus: Hover or touch to draw • Windows Ink PT_PEN"
+            android:text="Windows Ink PT_PEN Active • Pressure works in OneNote, Whiteboard, Krita, Photoshop"
             android:textColor="#7A88CF"
             android:textSize="12sp" />
     </LinearLayout>
