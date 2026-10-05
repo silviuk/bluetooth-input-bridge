@@ -60,6 +60,7 @@ private:
     void OnToggleLogging();
     void UpdateLogView();
     void DrawCards(HDC hdc);
+    void DrawSegmentedTabs(HDC hdc);
 
     // Command handlers
     void OnConnectButtonClicked();
@@ -76,7 +77,8 @@ private:
     StylusInjector m_stylusInjector;
 
     // Tabs
-    HWND m_hTabMain;
+    int m_selectedTab;
+    int m_hoverTab;
     std::vector<HWND> m_controlsTabHwnds;
     std::vector<HWND> m_logsTabHwnds;
 

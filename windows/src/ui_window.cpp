@@ -16,7 +16,8 @@ MainWindow::MainWindow(HINSTANCE hInstance, BluetoothManager* btManager, InputCa
     , m_hWnd(NULL)
     , m_btManager(btManager)
     , m_inputCapture(inputCapture)
-    , m_hTabMain(NULL)
+    , m_selectedTab(0)
+    , m_hoverTab(-1)
     , m_hRadioServer(NULL)
     , m_hRadioClient(NULL)
     , m_hLabelRadioServer(NULL)
@@ -189,7 +190,6 @@ void MainWindow::ApplyTheme(bool isDark) {
         const wchar_t* themeName = m_isDark ? L"DarkMode_Explorer" : L"Explorer";
         const wchar_t* cfdTheme = m_isDark ? L"DarkMode_CFD" : L"Explorer";
 
-        if (m_hTabMain) SetWindowTheme(m_hTabMain, themeName, NULL);
         if (m_hRadioServer) SetWindowTheme(m_hRadioServer, themeName, NULL);
         if (m_hRadioClient) SetWindowTheme(m_hRadioClient, themeName, NULL);
         if (m_hComboDevices) SetWindowTheme(m_hComboDevices, cfdTheme, NULL);
@@ -325,6 +325,77 @@ void MainWindow::ApplyModernFonts() {
         FIXED_PITCH | FF_MODERN, L"Cascadia Code");
 }
 
+void MainWindow::DrawSegmentedTabs(HDC hdc) {
+    int padX = 20;
+    int cardW = 504;
+    int tabY = 66;
+    int tabH = 34;
+
+    // 1. Segmented pill container
+    COLORREF containerBg = m_isDark ? RGB(36, 36, 36) : RGB(232, 232, 232);
+    COLORREF containerBorder = m_isDark ? RGB(56, 56, 56) : RGB(216, 216, 216);
+
+    HPEN hBorderPen = CreatePen(PS_SOLID, 1, containerBorder);
+    HBRUSH hContainerBrush = CreateSolidBrush(containerBg);
+    HGDIOBJ oldP = SelectObject(hdc, hBorderPen);
+    HGDIOBJ oldB = SelectObject(hdc, hContainerBrush);
+
+    RoundRect(hdc, padX, tabY, padX + cardW, tabY + tabH, 10, 10);
+
+    // 2. Tabs
+    int tabWidth = (cardW - 8) / 2;
+    RECT rcTabs[2] = {
+        { padX + 3, tabY + 3, padX + 3 + tabWidth, tabY + tabH - 3 },
+        { padX + 3 + tabWidth + 2, tabY + 3, padX + cardW - 3, tabY + tabH - 3 }
+    };
+
+    const wchar_t* tabTitles[2] = {
+        L"Controls & Actions",
+        L"Activity & Logs"
+    };
+
+    for (int i = 0; i < 2; ++i) {
+        bool isSelected = (m_selectedTab == i);
+        bool isHovered = (m_hoverTab == i);
+
+        if (isSelected) {
+            COLORREF activeBg = m_isDark ? RGB(56, 56, 56) : RGB(255, 255, 255);
+            COLORREF activeBorder = m_isDark ? RGB(76, 76, 76) : RGB(208, 208, 208);
+
+            HPEN hActivePen = CreatePen(PS_SOLID, 1, activeBorder);
+            HBRUSH hActiveBrush = CreateSolidBrush(activeBg);
+            SelectObject(hdc, hActivePen);
+            SelectObject(hdc, hActiveBrush);
+
+            RoundRect(hdc, rcTabs[i].left, rcTabs[i].top, rcTabs[i].right, rcTabs[i].bottom, 8, 8);
+
+            DeleteObject(hActiveBrush);
+            DeleteObject(hActivePen);
+        } else if (isHovered) {
+            COLORREF hoverBg = m_isDark ? RGB(46, 46, 46) : RGB(242, 242, 242);
+            HBRUSH hHoverBrush = CreateSolidBrush(hoverBg);
+            HPEN hHoverPen = CreatePen(PS_SOLID, 1, hoverBg);
+            SelectObject(hdc, hHoverPen);
+            SelectObject(hdc, hHoverBrush);
+
+            RoundRect(hdc, rcTabs[i].left, rcTabs[i].top, rcTabs[i].right, rcTabs[i].bottom, 8, 8);
+
+            DeleteObject(hHoverBrush);
+            DeleteObject(hHoverPen);
+        }
+
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, isSelected ? m_theme.textTitle : m_theme.textMuted);
+        SelectObject(hdc, isSelected ? m_hFontBold : m_hFontNormal);
+        DrawTextW(hdc, tabTitles[i], -1, &rcTabs[i], DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    }
+
+    SelectObject(hdc, oldP);
+    SelectObject(hdc, oldB);
+    DeleteObject(hContainerBrush);
+    DeleteObject(hBorderPen);
+}
+
 void MainWindow::DrawCards(HDC hdc) {
     int padX = 20;
     int cardW = 504;
@@ -357,31 +428,20 @@ void MainWindow::CreateControls() {
     SendMessageW(hTitle, WM_SETFONT, (WPARAM)m_hFontTitle, TRUE);
     curY += 30;
 
-    // Subtitle label
+    // Subtitle label (SS_NOPREFIX prevents hiding '&')
     HWND hSub = CreateWindowExW(0, L"STATIC", L"Share keyboard, mouse pointer and stylus seamlessly between Windows & Android",
-        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOPREFIX,
         padX, curY, cardW, 18, m_hWnd, NULL, m_hInstance, NULL);
     SendMessageW(hSub, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     curY += 24;
 
-    // Top Tab Control with TCS_OWNERDRAWFIXED
-    m_hTabMain = CreateWindowExW(0, WC_TABCONTROLW, L"",
-        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | TCS_TABS | TCS_OWNERDRAWFIXED,
-        padX, curY, cardW, 30, m_hWnd, (HMENU)IDC_TAB_MAIN, m_hInstance, NULL);
-    SendMessageW(m_hTabMain, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
-
-    TCITEMW tie;
-    tie.mask = TCIF_TEXT;
-    tie.pszText = (LPWSTR)L"Controls & Actions";
-    TabCtrl_InsertItem(m_hTabMain, 0, &tie);
-    tie.pszText = (LPWSTR)L"Activity & Logs";
-    TabCtrl_InsertItem(m_hTabMain, 1, &tie);
+    // Segmented tabs are drawn in WM_PAINT at y = 66..100
 
     // ================= CONTROLS TAB CONTENT =================
     // Card 1: Connection & Pairing
     int c1Y = 116;
     HWND hModeLabel = CreateWindowExW(0, L"STATIC", L"1. Connection Mode & Bluetooth Pairing",
-        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOPREFIX,
         padX + 14, c1Y, cardW - 28, 20, m_hWnd, NULL, m_hInstance, NULL);
     SendMessageW(hModeLabel, WM_SETFONT, (WPARAM)m_hFontBold, TRUE);
     m_controlsTabHwnds.push_back(hModeLabel);
@@ -592,6 +652,7 @@ void MainWindow::OnToggleLogging() {
 }
 
 void MainWindow::SwitchTab(int tabIndex) {
+    m_selectedTab = tabIndex;
     bool showControls = (tabIndex == 0);
     for (HWND h : m_controlsTabHwnds) {
         if (h && IsWindow(h)) ShowWindow(h, showControls ? SW_SHOW : SW_HIDE);
@@ -909,56 +970,83 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
         case WM_PAINT: {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
-            if (TabCtrl_GetCurSel(m_hTabMain) == 0) {
+            DrawSegmentedTabs(hdc);
+            if (m_selectedTab == 0) {
                 DrawCards(hdc);
             }
             EndPaint(hWnd, &ps);
             return 0;
         }
 
-        case WM_DRAWITEM: {
-            DRAWITEMSTRUCT* pDIS = (DRAWITEMSTRUCT*)lParam;
-            if (pDIS && pDIS->CtlType == ODT_TAB && pDIS->hwndItem == m_hTabMain) {
-                int tabIndex = pDIS->itemID;
-                bool isSelected = (TabCtrl_GetCurSel(m_hTabMain) == tabIndex);
+        case WM_LBUTTONDOWN: {
+            int x = GET_X_LPARAM(lParam);
+            int y = GET_Y_LPARAM(lParam);
+            int padX = 20;
+            int cardW = 504;
+            int tabY = 66;
+            int tabH = 34;
 
-                RECT rc = pDIS->rcItem;
-                InflateRect(&rc, -2, -2);
-
-                HBRUSH hPillBrush = isSelected ? m_hCardBrush : (HBRUSH)GetStockObject(NULL_BRUSH);
-                HPEN hPillPen = isSelected ? m_hCardBorderPen : (HPEN)GetStockObject(NULL_PEN);
-                HGDIOBJ oldP = SelectObject(pDIS->hDC, hPillPen);
-                HGDIOBJ oldB = SelectObject(pDIS->hDC, hPillBrush);
-
-                if (isSelected) {
-                    RoundRect(pDIS->hDC, rc.left, rc.top, rc.right, rc.bottom, 8, 8);
+            if (y >= tabY && y <= tabY + tabH && x >= padX && x <= padX + cardW) {
+                int tabWidth = (cardW - 8) / 2;
+                if (x <= padX + 3 + tabWidth) {
+                    if (m_selectedTab != 0) SwitchTab(0);
+                } else if (x >= padX + 3 + tabWidth + 2) {
+                    if (m_selectedTab != 1) SwitchTab(1);
                 }
-
-                SelectObject(pDIS->hDC, oldP);
-                SelectObject(pDIS->hDC, oldB);
-
-                wchar_t textBuf[64] = {0};
-                TCITEMW tci;
-                tci.mask = TCIF_TEXT;
-                tci.pszText = textBuf;
-                tci.cchTextMax = 63;
-                TabCtrl_GetItem(m_hTabMain, tabIndex, &tci);
-
-                SetBkMode(pDIS->hDC, TRANSPARENT);
-                SetTextColor(pDIS->hDC, isSelected ? m_theme.textTitle : m_theme.textMuted);
-                SelectObject(pDIS->hDC, isSelected ? m_hFontBold : m_hFontNormal);
-                DrawTextW(pDIS->hDC, textBuf, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-                return TRUE;
+                return 0;
             }
             break;
         }
 
-        case WM_NOTIFY: {
-            NMHDR* pnm = (NMHDR*)lParam;
-            if (pnm && pnm->idFrom == IDC_TAB_MAIN && pnm->code == TCN_SELCHANGE) {
-                int sel = TabCtrl_GetCurSel(m_hTabMain);
-                SwitchTab(sel);
-                return 0;
+        case WM_MOUSEMOVE: {
+            int x = GET_X_LPARAM(lParam);
+            int y = GET_Y_LPARAM(lParam);
+            int padX = 20;
+            int cardW = 504;
+            int tabY = 66;
+            int tabH = 34;
+
+            int newHover = -1;
+            if (y >= tabY && y <= tabY + tabH && x >= padX && x <= padX + cardW) {
+                int tabWidth = (cardW - 8) / 2;
+                if (x <= padX + 3 + tabWidth) newHover = 0;
+                else if (x >= padX + 3 + tabWidth + 2) newHover = 1;
+            }
+
+            if (newHover != m_hoverTab) {
+                m_hoverTab = newHover;
+                RECT rcTabs = { padX, tabY, padX + cardW, tabY + tabH };
+                InvalidateRect(hWnd, &rcTabs, FALSE);
+
+                TRACKMOUSEEVENT tme;
+                tme.cbSize = sizeof(TRACKMOUSEEVENT);
+                tme.dwFlags = TME_LEAVE;
+                tme.hwndTrack = hWnd;
+                TrackMouseEvent(&tme);
+            }
+            break;
+        }
+
+        case WM_MOUSELEAVE: {
+            if (m_hoverTab != -1) {
+                m_hoverTab = -1;
+                int padX = 20;
+                int cardW = 504;
+                RECT rcTabs = { padX, 66, padX + cardW, 66 + 34 };
+                InvalidateRect(hWnd, &rcTabs, FALSE);
+            }
+            break;
+        }
+
+        case WM_SETCURSOR: {
+            POINT pt;
+            GetCursorPos(&pt);
+            ScreenToClient(hWnd, &pt);
+            int padX = 20;
+            int cardW = 504;
+            if (pt.y >= 66 && pt.y <= 100 && pt.x >= padX && pt.x <= padX + cardW) {
+                SetCursor(LoadCursor(NULL, IDC_HAND));
+                return TRUE;
             }
             break;
         }
@@ -1169,7 +1257,7 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
             POINT pt = { rc.left, rc.top };
             ScreenToClient(hWnd, &pt);
 
-            if (TabCtrl_GetCurSel(m_hTabMain) == 0 && pt.y >= 106) {
+            if (m_selectedTab == 0 && pt.y >= 106) {
                 return (INT_PTR)m_hCardBrush;
             }
             return (INT_PTR)m_hBgBrush;
