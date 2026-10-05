@@ -30,7 +30,7 @@ Under Windows 10/11, the native Windows Bluetooth driver stack (`BthModem.sys` /
 
 ## 2. Release Packages (v0.2.0)
 
-Pre-built release packages are available in [`releases/v0.2/`](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2) and on [GitHub Releases](https://github.com/silviuk/bluetooth-input-bridge/releases):
+Pre-built release packages are available in [`releases/v0.2/`](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2) and on [GitHub Releases](https://github.com/silviuk/lapdroid/releases):
 
 | File | Type | Size | Description |
 | :--- | :--- | :--- | :--- |
