@@ -7,11 +7,15 @@ import android.graphics.Path;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
+import android.view.inputmethod.EditorInfo;
 
 import java.util.List;
 
@@ -70,6 +74,18 @@ public class InputAccessibilityService extends AccessibilityService {
 
         GestureDescription.StrokeDescription stroke =
                 new GestureDescription.StrokeDescription(scrollPath, 0, 150);
+        GestureDescription.Builder builder = new GestureDescription.Builder();
+        builder.addStroke(stroke);
+        dispatchGesture(builder.build(), null, null);
+    }
+
+    public void dispatchSwipe(float fromX, float fromY, float toX, float toY, long durationMs) {
+        Path path = new Path();
+        path.moveTo(fromX, fromY);
+        path.lineTo(toX, toY);
+
+        GestureDescription.StrokeDescription stroke =
+                new GestureDescription.StrokeDescription(path, 0, Math.max(50, durationMs));
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(stroke);
         dispatchGesture(builder.build(), null, null);
@@ -157,6 +173,13 @@ public class InputAccessibilityService extends AccessibilityService {
         BridgeSettings settings = BridgeSettings.getInstance(this);
         boolean isCtrl  = (modifiers & Protocol.MOD_CTRL) != 0;
         boolean isShift = (modifiers & Protocol.MOD_SHIFT) != 0;
+
+        // Ctrl + Enter: Trigger Send in WhatsApp and messaging apps
+        if (isCtrl && androidKeycode == 66) {
+            if (triggerSendAction()) {
+                return;
+            }
+        }
 
         AccessibilityNodeInfo focused = getFocusedInputNode();
         if (focused == null) {
@@ -680,5 +703,281 @@ public class InputAccessibilityService extends AccessibilityService {
             }
         }
         return null;
+    }
+
+    // ================= CTRL+ENTER SEND TRIGGER =================
+    public boolean triggerSendAction() {
+        AppLogger.i("Accessibility", "Attempting to trigger Send action via accessibility tree");
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) {
+            try {
+                List<AccessibilityWindowInfo> windows = getWindows();
+                if (windows != null) {
+                    for (AccessibilityWindowInfo w : windows) {
+                        if (w.isFocused() || w.isActive()) {
+                            AccessibilityNodeInfo wRoot = w.getRoot();
+                            if (wRoot != null) {
+                                boolean handled = triggerSendActionOnRoot(wRoot);
+                                wRoot.recycle();
+                                if (handled) return true;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+            return false;
+        }
+
+        try {
+            return triggerSendActionOnRoot(root);
+        } finally {
+            root.recycle();
+        }
+    }
+
+    private boolean triggerSendActionOnRoot(AccessibilityNodeInfo root) {
+        if (root == null) return false;
+
+        // 1. Direct match on popular messaging app send button IDs
+        String[] targetIds = {
+            "com.whatsapp:id/send",
+            "com.whatsapp.w4b:id/send",
+            "org.telegram.messenger:id/send_button",
+            "org.thoughtcrime.securesms:id/send_button",
+            "com.google.android.apps.messaging:id/send_message_button_icon",
+            "com.google.android.apps.messaging:id/send_message_button",
+            "com.facebook.orca:id/composer_send_button",
+            "com.discord:id/send_btn",
+            "com.slack:id/send_button"
+        };
+
+        for (String id : targetIds) {
+            try {
+                List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByViewId(id);
+                if (nodes != null && !nodes.isEmpty()) {
+                    for (AccessibilityNodeInfo node : nodes) {
+                        try {
+                            if (performClickSafe(node)) {
+                                AppLogger.i("Accessibility", "Triggered Send via viewId: " + id);
+                                return true;
+                            }
+                        } finally {
+                            node.recycle();
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 2. Multilingual Content Description match for Send
+        String[] sendDescriptions = {
+            "send", "enviar", "senden", "envoyer", "invia", "отправить", "trimite", "wyslij", "stuur", "gonder"
+        };
+        for (String desc : sendDescriptions) {
+            try {
+                List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByText(desc);
+                if (nodes != null) {
+                    for (AccessibilityNodeInfo node : nodes) {
+                        try {
+                            CharSequence cd = node.getContentDescription();
+                            CharSequence text = node.getText();
+                            String s = (cd != null ? cd.toString() : (text != null ? text.toString() : "")).trim();
+                            if (s.equalsIgnoreCase(desc)) {
+                                if (performClickSafe(node)) {
+                                    AppLogger.i("Accessibility", "Triggered Send via description: " + desc);
+                                    return true;
+                                }
+                            }
+                        } finally {
+                            node.recycle();
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 3. Recursive tree search for any viewId containing "send"
+        AccessibilityNodeInfo sendNode = findSendNodeRecursive(root);
+        if (sendNode != null) {
+            try {
+                if (performClickSafe(sendNode)) {
+                    AppLogger.i("Accessibility", "Triggered Send via recursive search");
+                    return true;
+                }
+            } finally {
+                sendNode.recycle();
+            }
+        }
+
+        // 4. Fallback: IME action SEND on focused node
+        AccessibilityNodeInfo focused = getFocusedInputNode();
+        if (focused != null) {
+            try {
+                boolean ok = focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
+                if (ok) {
+                    AppLogger.i("Accessibility", "Triggered Send via ACTION_IME_ENTER");
+                    return true;
+                }
+            } finally {
+                focused.recycle();
+            }
+        }
+
+        return false;
+    }
+
+    private AccessibilityNodeInfo findSendNodeRecursive(AccessibilityNodeInfo node) {
+        if (node == null) return null;
+        String resId = node.getViewIdResourceName();
+        if (resId != null && resId.toLowerCase().contains("send")) {
+            if (node.isClickable() || (node.getParent() != null && node.getParent().isClickable())) {
+                return AccessibilityNodeInfo.obtain(node);
+            }
+        }
+        CharSequence cd = node.getContentDescription();
+        if (cd != null && cd.toString().trim().equalsIgnoreCase("send")) {
+            if (node.isClickable() || (node.getParent() != null && node.getParent().isClickable())) {
+                return AccessibilityNodeInfo.obtain(node);
+            }
+        }
+        int count = node.getChildCount();
+        for (int i = 0; i < count; i++) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child != null) {
+                AccessibilityNodeInfo found = findSendNodeRecursive(child);
+                child.recycle();
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private boolean performClickSafe(AccessibilityNodeInfo node) {
+        if (node == null) return false;
+        if (node.isClickable()) {
+            return node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+        }
+        AccessibilityNodeInfo parent = node.getParent();
+        if (parent != null) {
+            try {
+                if (parent.isClickable()) {
+                    return parent.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                }
+                AccessibilityNodeInfo grandParent = parent.getParent();
+                if (grandParent != null) {
+                    try {
+                        if (grandParent.isClickable()) {
+                            return grandParent.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                        }
+                    } finally {
+                        grandParent.recycle();
+                    }
+                }
+            } finally {
+                parent.recycle();
+            }
+        }
+        return false;
+    }
+
+    // ================= ALT+TAB APP SWITCHER & CYCLER =================
+    private boolean mAltHeld = false;
+    private boolean mAltTabActive = false;
+    private int mAltTabCount = 0;
+    private long mAltTabStartTime = 0;
+    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
+    private Runnable mSingleTabCommitRunnable = null;
+
+    public boolean isAltHeld() {
+        return mAltHeld;
+    }
+
+    public boolean isAltTabActive() {
+        return mAltTabActive;
+    }
+
+    public void onAltStateChanged(boolean isDown) {
+        mAltHeld = isDown;
+        if (!isDown && mAltTabActive) {
+            onAltReleased();
+        }
+    }
+
+    public void handleAltTab(boolean isShift) {
+        long now = SystemClock.uptimeMillis();
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int screenH = getResources().getDisplayMetrics().heightPixels;
+
+        if (!mAltTabActive) {
+            // First press of Alt+Tab: open Recents
+            mAltTabActive = true;
+            mAltTabCount = 1;
+            mAltTabStartTime = now;
+
+            performGlobalAction(GLOBAL_ACTION_RECENTS);
+            AppLogger.i("AltTab", "Alt+Tab (1st press): Opened Recents overview");
+        } else {
+            // Consecutive Tab presses while Alt is held: cycle apps!
+            mAltTabCount++;
+            AppLogger.i("AltTab", "Alt+Tab (press " + mAltTabCount + ", shift=" + isShift + "): Cycling apps");
+
+            if (mSingleTabCommitRunnable != null) {
+                mMainHandler.removeCallbacks(mSingleTabCommitRunnable);
+                mSingleTabCommitRunnable = null;
+            }
+
+            float cy = screenH * 0.5f;
+            if (!isShift) {
+                // Cycle forward (swipe left to bring next card into center)
+                float startX = screenW * 0.80f;
+                float endX   = screenW * 0.20f;
+                dispatchSwipe(startX, cy, endX, cy, 140);
+            } else {
+                // Cycle backward (swipe right to bring previous card into center)
+                float startX = screenW * 0.20f;
+                float endX   = screenW * 0.80f;
+                dispatchSwipe(startX, cy, endX, cy, 140);
+            }
+        }
+    }
+
+    public void onAltReleased() {
+        if (!mAltTabActive) return;
+
+        final int count = mAltTabCount;
+        mAltTabActive = false;
+        mAltTabCount = 0;
+
+        AppLogger.i("AltTab", "Alt released: count=" + count);
+
+        if (count == 1) {
+            // "press once, switch to previous app"
+            // Wait brief moment for Recents window to settle then switch
+            mMainHandler.postDelayed(() -> {
+                boolean clicked = clickCenteredRecentApp();
+                if (!clicked) {
+                    performGlobalAction(GLOBAL_ACTION_RECENTS);
+                }
+                AppLogger.i("AltTab", "Committed quick switch to previous app");
+            }, 180);
+        } else {
+            // "press twice cycle to next one, alt-shift-tab cycle to previous"
+            // Commit the selected app by clicking the centered app card
+            mMainHandler.postDelayed(() -> {
+                clickCenteredRecentApp();
+                AppLogger.i("AltTab", "Committed cycled app switch to active task");
+            }, 160);
+        }
+    }
+
+    private boolean clickCenteredRecentApp() {
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int screenH = getResources().getDisplayMetrics().heightPixels;
+        float cx = screenW * 0.5f;
+        float cy = screenH * 0.5f;
+
+        // In Android Overview, clicking the center of the screen activates the centered task card
+        dispatchClick(cx, cy);
+        return true;
     }
 }

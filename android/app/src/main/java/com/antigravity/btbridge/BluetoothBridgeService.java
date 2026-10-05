@@ -498,21 +498,51 @@ public class BluetoothBridgeService extends Service {
                     byte modifiers = bb.get();
                     char unicodeChar = (char) (bb.getShort() & 0xFFFF);
 
+                    InputAccessibilityService accessService = InputAccessibilityService.getInstance();
+                    BridgeSettings settings = BridgeSettings.getInstance(this);
+
+                    // Track Alt state for Alt+Tab task switcher
+                    boolean isAltKey = (androidKc == 57 || androidKc == 58 || winVk == 18);
+                    if (isAltKey) {
+                        if (accessService != null) {
+                            accessService.onAltStateChanged(state == Protocol.STATE_DOWN);
+                        }
+                    } else if (state == Protocol.STATE_UP && (modifiers & Protocol.MOD_ALT) == 0) {
+                        if (accessService != null && accessService.isAltTabActive()) {
+                            accessService.onAltStateChanged(false);
+                        }
+                    }
+
                     if (state == Protocol.STATE_DOWN) {
-                        // 1. Direct Input IME Check (for tricky apps, Termux, and games)
+                        // 1. Alt + Tab (Multi-app cycling switcher)
+                        if (settings.isAltTabEnabled() && (modifiers & Protocol.MOD_ALT) != 0 && (androidKc == 61 || winVk == 9)) {
+                            if (accessService != null) {
+                                boolean isShift = (modifiers & Protocol.MOD_SHIFT) != 0;
+                                accessService.handleAltTab(isShift);
+                            }
+                            return;
+                        }
+
+                        // 2. Ctrl + Enter (Send message in WhatsApp & chat apps)
+                        if ((modifiers & Protocol.MOD_CTRL) != 0 && (androidKc == 66 || winVk == 13)) {
+                            LapdroidInputMethodService ime = LapdroidInputMethodService.getInstance();
+                            if (ime != null && ime.forwardKey(androidKc, unicodeChar, modifiers)) {
+                                AppLogger.i("BT-Bridge", "Executed Ctrl+Enter -> Send via IME");
+                                return;
+                            }
+                            if (accessService != null && accessService.triggerSendAction()) {
+                                AppLogger.i("BT-Bridge", "Executed Ctrl+Enter -> Send via Accessibility");
+                                return;
+                            }
+                        }
+
+                        // 3. Direct Input IME Check (for tricky apps, Termux, and games)
                         LapdroidInputMethodService ime = LapdroidInputMethodService.getInstance();
                         if (ime != null && ime.forwardKey(androidKc, unicodeChar, modifiers)) {
                             AppLogger.d("BT-Bridge", "Key forwarded directly via Lapdroid IME: kc=" + androidKc);
                         } else {
-                            InputAccessibilityService accessService = InputAccessibilityService.getInstance();
-                            BridgeSettings settings = BridgeSettings.getInstance(this);
-
-                            // 2. Alt + Tab (Recent Apps Switcher)
-                            if (settings.isAltTabEnabled() && (modifiers & Protocol.MOD_ALT) != 0 && (androidKc == 61 || winVk == 9)) {
-                                if (accessService != null) accessService.performAction(Protocol.ACT_RECENTS);
-                            }
-                            // 3. PrintScreen (Screenshot)
-                            else if (androidKc == 120 || winVk == 44) {
+                            // 4. PrintScreen (Screenshot)
+                            if (androidKc == 120 || winVk == 44) {
                                 if (accessService != null) accessService.performAction(Protocol.ACT_SCREENSHOT);
                             }
                             // 4. Volume & Audio Controls

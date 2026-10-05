@@ -218,7 +218,9 @@ LRESULT InputCapture::HandleKeyboardHook(int nCode, WPARAM wParam, LPARAM lParam
     uint8_t modifiers = 0;
     if (GetAsyncKeyState(VK_SHIFT) & 0x8000)   modifiers |= KEY_MOD_SHIFT;
     if (GetAsyncKeyState(VK_CONTROL) & 0x8000) modifiers |= KEY_MOD_CTRL;
-    if (GetAsyncKeyState(VK_MENU) & 0x8000)    modifiers |= KEY_MOD_ALT;
+    if ((GetAsyncKeyState(VK_MENU) & 0x8000) || (pKbd->flags & LLKHF_ALTDOWN) || pKbd->vkCode == VK_MENU || pKbd->vkCode == VK_LMENU || pKbd->vkCode == VK_RMENU) {
+        modifiers |= KEY_MOD_ALT;
+    }
     if ((GetAsyncKeyState(VK_LWIN) | GetAsyncKeyState(VK_RWIN)) & 0x8000) modifiers |= KEY_MOD_META;
 
     // Map to Android keycode

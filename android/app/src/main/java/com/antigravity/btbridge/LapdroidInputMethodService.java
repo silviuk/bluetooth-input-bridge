@@ -66,12 +66,31 @@ public class LapdroidInputMethodService extends InputMethodService {
 
         // 3. Ctrl Shortcuts
         if ((modifiers & Protocol.MOD_CTRL) != 0) {
+            // Ctrl + Enter: Send message in WhatsApp and chat apps
+            if (androidKeycode == 66) {
+                InputAccessibilityService accessService = InputAccessibilityService.getInstance();
+                if (accessService != null && accessService.triggerSendAction()) {
+                    return true;
+                }
+                if (ic.performEditorAction(EditorInfo.IME_ACTION_SEND)) {
+                    return true;
+                }
+                if (ic.performEditorAction(EditorInfo.IME_ACTION_DONE)) {
+                    return true;
+                }
+                return false;
+            }
             if (androidKeycode == 29) { ic.performContextMenuAction(android.R.id.selectAll); return true; }
             if (androidKeycode == 31) { ic.performContextMenuAction(android.R.id.copy); return true; }
             if (androidKeycode == 50) { ic.performContextMenuAction(android.R.id.paste); return true; }
             if (androidKeycode == 52) { ic.performContextMenuAction(android.R.id.cut); return true; }
             if (androidKeycode == 54) { ic.performContextMenuAction(android.R.id.undo); return true; }
             if (androidKeycode == 53) { ic.performContextMenuAction(android.R.id.redo); return true; }
+        }
+
+        // Alt + Tab: Do not consume in IME, let AltTab system switcher handle it
+        if ((modifiers & Protocol.MOD_ALT) != 0 && androidKeycode == 61) {
+            return false;
         }
 
         // 4. Enter
