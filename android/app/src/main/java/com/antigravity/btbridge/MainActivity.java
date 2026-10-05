@@ -2,6 +2,7 @@ package com.antigravity.btbridge;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -18,8 +19,11 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MainActivity extends Activity implements BluetoothBridgeService.StatusListener {
-    private static final int REQUEST_BT_PERMS = 101;
+    private static final int REQUEST_PERMS = 101;
     private static final int REQUEST_OVERLAY_PERM = 102;
 
     private TextView mTvStatus;
@@ -34,6 +38,7 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
 
     private BluetoothBridgeService mService;
     private boolean mBound = false;
+    private boolean mHasAutoRequested = false;
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         @Override
@@ -67,37 +72,69 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         mBtnToggleServer = findViewById(R.id.btn_toggle_server);
         mEtTestInput = findViewById(R.id.et_test_input);
 
-        mBtnGrantBt.setOnClickListener(v -> requestBluetoothPermissions());
+        mBtnGrantBt.setOnClickListener(v -> requestMissingRuntimePermissions());
         mBtnGrantOverlay.setOnClickListener(v -> requestOverlayPermission());
         mBtnGrantAccess.setOnClickListener(v -> openAccessibilitySettings());
 
         mBtnToggleServer.setOnClickListener(v -> {
             if (mBound && mService != null) {
                 mService.startServer();
-                Toast.makeText(this, "Bluetooth listener restarted", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Lapdroid Bluetooth listener restarted", Toast.LENGTH_SHORT).show();
+            } else if (hasBluetoothPermissions()) {
+                startBridgeServiceSafe();
+            } else {
+                Toast.makeText(this, "Please grant Bluetooth permission first", Toast.LENGTH_SHORT).show();
+                requestMissingRuntimePermissions();
             }
         });
 
-        startBridgeService();
+        // First-run automatic permission prompt
+        if (!hasBluetoothPermissions()) {
+            mHasAutoRequested = true;
+            mTvStatus.setText("Waiting for permissions...");
+            mTvStatus.setTextColor(0xFFE0AF68); // Amber warning
+            requestMissingRuntimePermissions();
+        } else {
+            // Permissions already granted, start service safely
+            startBridgeServiceSafe();
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         updatePermissionStatuses();
+
+        // If Bluetooth permission was granted and service not yet started, start it
+        if (hasBluetoothPermissions() && !mBound) {
+            startBridgeServiceSafe();
+        }
+
         if (mBound && mService != null) {
             mService.setStatusListener(this);
+            if (hasOverlayPermission()) {
+                mService.startServer();
+            }
         }
     }
 
-    private void startBridgeService() {
-        Intent intent = new Intent(this, BluetoothBridgeService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent);
-        } else {
-            startService(intent);
+    private void startBridgeServiceSafe() {
+        if (!hasBluetoothPermissions()) {
+            return; // Prevent crash when permissions not granted
         }
-        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+
+        try {
+            Intent intent = new Intent(this, BluetoothBridgeService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
+            bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+        } catch (Exception e) {
+            e.printStackTrace();
+            mTvStatus.setText("Service startup waiting for permissions");
+        }
     }
 
     private void updatePermissionStatuses() {
@@ -105,19 +142,24 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         boolean btOk = hasBluetoothPermissions();
         mTvPermBt.setText(btOk ? "Permission Granted" : "Required for RFCOMM connection");
         mBtnGrantBt.setEnabled(!btOk);
-        mBtnGrantBt.setText(btOk ? "Granted" : "Grant");
+        mBtnGrantBt.setText(btOk ? "Active" : "Grant");
 
         // Overlay
         boolean overlayOk = hasOverlayPermission();
         mTvPermOverlay.setText(overlayOk ? "Permission Granted" : "Draws mouse cursor on screen");
         mBtnGrantOverlay.setEnabled(!overlayOk);
-        mBtnGrantOverlay.setText(overlayOk ? "Granted" : "Grant");
+        mBtnGrantOverlay.setText(overlayOk ? "Active" : "Grant");
 
         // Accessibility
         boolean accessOk = (InputAccessibilityService.getInstance() != null);
         mTvPermAccess.setText(accessOk ? "Service Active" : "Injects taps, clicks, and keystrokes");
         mBtnGrantAccess.setEnabled(!accessOk);
         mBtnGrantAccess.setText(accessOk ? "Active" : "Enable");
+
+        // Guide dialog if overlay is missing after Bluetooth is granted
+        if (btOk && !overlayOk && !mHasAutoRequested) {
+            // Prompt user about overlay
+        }
     }
 
     private boolean hasBluetoothPermissions() {
@@ -127,13 +169,52 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         return true;
     }
 
-    private void requestBluetoothPermissions() {
+    private void requestMissingRuntimePermissions() {
+        List<String> perms = new ArrayList<>();
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            requestPermissions(new String[]{
-                    Manifest.permission.BLUETOOTH_CONNECT,
-                    Manifest.permission.BLUETOOTH_SCAN,
-                    Manifest.permission.POST_NOTIFICATIONS
-            }, REQUEST_BT_PERMS);
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                perms.add(Manifest.permission.BLUETOOTH_CONNECT);
+            }
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                perms.add(Manifest.permission.BLUETOOTH_SCAN);
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                perms.add(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
+
+        if (!perms.isEmpty()) {
+            requestPermissions(perms.toArray(new String[0]), REQUEST_PERMS);
+        } else {
+            // Check overlay next
+            checkAndPromptOverlay();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_PERMS) {
+            boolean allGranted = true;
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    break;
+                }
+            }
+
+            updatePermissionStatuses();
+
+            if (allGranted || hasBluetoothPermissions()) {
+                startBridgeServiceSafe();
+                checkAndPromptOverlay();
+            } else {
+                Toast.makeText(this, "Bluetooth permission is required for Lapdroid", Toast.LENGTH_LONG).show();
+            }
         }
     }
 
@@ -144,11 +225,35 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         return true;
     }
 
+    private void checkAndPromptOverlay() {
+        if (!hasOverlayPermission() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Step 2: Floating Mouse Cursor")
+                    .setMessage("Lapdroid needs permission to display the mouse pointer cursor over apps while controlling your phone.")
+                    .setPositiveButton("Grant Permission", (dialog, which) -> requestOverlayPermission())
+                    .setNegativeButton("Later", null)
+                    .show();
+        } else {
+            checkAndPromptAccessibility();
+        }
+    }
+
     private void requestOverlayPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:" + getPackageName()));
             startActivityForResult(intent, REQUEST_OVERLAY_PERM);
+        }
+    }
+
+    private void checkAndPromptAccessibility() {
+        if (InputAccessibilityService.getInstance() == null) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Step 3: Accessibility Engine")
+                    .setMessage("To inject keyboard typing, taps, and touchpad clicks, enable Lapdroid in Accessibility Settings.")
+                    .setPositiveButton("Open Settings", (dialog, which) -> openAccessibilitySettings())
+                    .setNegativeButton("Later", null)
+                    .show();
         }
     }
 
@@ -165,7 +270,6 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
 
     @Override
     public void onInputReceived(String info) {
-        // Appends to test input for immediate verification
         if (mEtTestInput != null && mEtTestInput.hasFocus()) {
             mEtTestInput.append(info.replace("Key: ", ""));
         }
@@ -174,7 +278,9 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     @Override
     protected void onDestroy() {
         if (mBound) {
-            unbindService(mConnection);
+            try {
+                unbindService(mConnection);
+            } catch (Exception ignored) {}
             mBound = false;
         }
         super.onDestroy();

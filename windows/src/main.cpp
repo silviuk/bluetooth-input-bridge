@@ -6,9 +6,9 @@
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
     // Single instance check
-    HANDLE hMutex = CreateMutexW(NULL, TRUE, L"Global\\S24_Bluetooth_Input_Bridge_Mutex");
+    HANDLE hMutex = CreateMutexW(NULL, TRUE, L"Global\\Lapdroid_Mutex");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
-        HWND existingWnd = FindWindowW(L"S24_Input_Bridge_Class", NULL);
+        HWND existingWnd = FindWindowW(L"Lapdroid_Class", NULL);
         if (existingWnd) {
             ShowWindow(existingWnd, SW_SHOW);
             SetForegroundWindow(existingWnd);

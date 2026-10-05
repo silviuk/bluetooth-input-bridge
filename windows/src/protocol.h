@@ -11,7 +11,7 @@
 
 // Standard UUID string for RFCOMM Serial Port Profile
 // Standard SPP UUID: 00001101-0000-1000-8000-00805F9B34FB
-#define BT_BRIDGE_SERVICE_NAME "S24_Input_Bridge"
+#define BT_BRIDGE_SERVICE_NAME "Lapdroid_Bridge"
 #define BT_BRIDGE_UUID_STR "00001101-0000-1000-8000-00805F9B34FB"
 
 // Message Types

@@ -6,14 +6,16 @@ CXXFLAGS = -std=c++17 -O2 -mwindows -municode -DUNICODE -D_UNICODE -Wall
 LIBS = -lws2_32 -lbthprops -lcomctl32 -lgdi32 -luser32 -lshell32 -lole32
 
 BIN_DIR = ../bin
-TARGET = $(BIN_DIR)/BluetoothInputBridge.exe
-SETUP = $(BIN_DIR)/BluetoothInputBridge-Setup.exe
+TARGET = $(BIN_DIR)/Lapdroid.exe
+SETUP = $(BIN_DIR)/Lapdroid-Setup.exe
 
 SRCS = src/main.cpp src/bluetooth_manager.cpp src/input_capture.cpp src/ui_window.cpp
 RES = src/resources.rc
 RES_OBJ = src/resources.o
 
 all: $(TARGET) $(SETUP)
+	cp -f $(TARGET) $(BIN_DIR)/BluetoothInputBridge.exe
+	cp -f $(SETUP) $(BIN_DIR)/BluetoothInputBridge-Setup.exe
 
 $(RES_OBJ): $(RES) res/app.ico res/app.manifest
 	$(WINDRES) $(RES) -O coff -o $(RES_OBJ)

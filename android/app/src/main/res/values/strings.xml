@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">S24 Input Bridge</string>
-    <string name="accessibility_service_description">Enables Windows PC keyboard and touchpad control over Bluetooth without Wi-Fi</string>
+    <string name="app_name">Lapdroid</string>
+    <string name="accessibility_service_description">Lapdroid lets you control your phone using your laptop keyboard and touchpad over Bluetooth without Wi-Fi</string>
     <string name="status_disconnected">Disconnected</string>
     <string name="status_listening">Listening for Windows PC...</string>
     <string name="status_connected">Connected to Windows PC</string>
-    <string name="notification_channel_name">Bluetooth Bridge Service</string>
-    <string name="notification_title">S24 Input Bridge Active</string>
-    <string name="notification_text">Bluetooth remote input is running in background</string>
+    <string name="notification_channel_name">Lapdroid Bridge Service</string>
+    <string name="notification_title">Lapdroid Active</string>
+    <string name="notification_text">Bluetooth keyboard &amp; touchpad bridge running in background</string>
 </resources>

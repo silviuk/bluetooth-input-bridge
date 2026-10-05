@@ -12,21 +12,40 @@
         android:padding="20dp">
 
         <!-- Title Header -->
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="S24 Ultra Bluetooth Bridge"
-            android:textColor="@color/text_primary"
-            android:textSize="22sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Direct Bluetooth control from Windows (No Wi-Fi)"
-            android:textColor="@color/text_secondary"
-            android:textSize="14sp" />
+            <ImageView
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_launcher" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Lapdroid"
+                    android:textColor="@color/text_primary"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Laptop Keyboard &amp; Touchpad over Bluetooth"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </LinearLayout>
 
         <!-- Status Card -->
         <LinearLayout
@@ -50,7 +69,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:text="Listening for Windows PC..."
+                android:text="Initializing..."
                 android:textColor="@color/status_green"
                 android:textSize="16sp"
                 android:textStyle="bold" />
@@ -71,9 +90,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="Required Permissions"
+            android:text="Required Permissions (First-Time Setup)"
             android:textColor="@color/text_primary"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <!-- Bluetooth Permission Card -->
@@ -95,7 +114,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="1. Bluetooth Permissions"
+                    android:text="1. Bluetooth &amp; Notifications"
                     android:textColor="@color/text_primary"
                     android:textStyle="bold" />
 
@@ -198,9 +217,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="Live Keyboard &amp; Touchpad Test Area"
+            android:text="Live Keyboard Test Area"
             android:textColor="@color/text_primary"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <EditText
@@ -209,7 +228,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:background="@color/card_bg"
-            android:hint="Type from Windows PC keyboard here to test..."
+            android:hint="Type from your laptop keyboard here to test..."
             android:padding="14dp"
             android:textColor="@color/text_primary"
             android:textColorHint="@color/text_secondary"
@@ -220,7 +239,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:gravity="center"
-            android:text="Google Antigravity - Bluetooth Remote Input"
+            android:text="Lapdroid v0.2.0 • 100% Offline Bluetooth"
             android:textColor="@color/text_secondary"
             android:textSize="11sp" />
 

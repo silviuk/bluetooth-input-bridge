@@ -134,8 +134,8 @@ bool BluetoothManager::StartServer(ULONG port) {
     // Register SDP service
     ZeroMemory(&m_serviceRecord, sizeof(m_serviceRecord));
     m_serviceRecord.dwSize = sizeof(m_serviceRecord);
-    m_serviceRecord.lpszServiceInstanceName = (LPWSTR)L"S24_Input_Bridge";
-    m_serviceRecord.lpszComment = (LPWSTR)L"Windows to S24 Ultra Bluetooth Input Bridge";
+    m_serviceRecord.lpszServiceInstanceName = (LPWSTR)L"Lapdroid_Bridge";
+    m_serviceRecord.lpszComment = (LPWSTR)L"Lapdroid - Windows to Android Bluetooth Input Bridge";
     m_serviceRecord.lpServiceClassId = (LPGUID)&BT_SerialPortServiceClass_UUID;
     m_serviceRecord.dwNumberOfCsAddrs = 1;
 

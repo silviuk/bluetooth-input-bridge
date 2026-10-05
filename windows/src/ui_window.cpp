@@ -14,7 +14,7 @@
 #define CLR_SUCCESS     RGB(158, 206, 106)
 #define CLR_ERROR       RGB(247, 118, 142)
 
-static const wchar_t* WINDOW_CLASS_NAME = L"S24_Input_Bridge_Class";
+static const wchar_t* WINDOW_CLASS_NAME = L"Lapdroid_Class";
 
 MainWindow::MainWindow(HINSTANCE hInstance, BluetoothManager* btManager, InputCapture* inputCapture)
     : m_hInstance(hInstance)
@@ -91,7 +91,7 @@ bool MainWindow::Create() {
     m_hWnd = CreateWindowExW(
         0,
         WINDOW_CLASS_NAME,
-        L"S24 Ultra Bluetooth Input Bridge",
+        L"Lapdroid - Bluetooth Keyboard & Touchpad",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
         startX, startY, winW, winH,
         NULL, NULL, m_hInstance, this
@@ -144,7 +144,7 @@ void MainWindow::CreateControls() {
     int curY = 20;
 
     // Title label
-    HWND hTitle = CreateWindowExW(0, L"STATIC", L"Galaxy S24 Ultra Bluetooth Input Bridge",
+    HWND hTitle = CreateWindowExW(0, L"STATIC", L"Lapdroid",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
         padX, curY, 500, 28, m_hWnd, NULL, m_hInstance, NULL);
     SendMessageW(hTitle, WM_SETFONT, (WPARAM)m_hFontTitle, TRUE);
@@ -318,7 +318,7 @@ void MainWindow::SetupTrayIcon() {
     m_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_INFO;
     m_nid.uCallbackMessage = WM_TRAYNOTIFY;
     m_nid.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-    wcscpy(m_nid.szTip, L"S24 Ultra Bluetooth Input Bridge");
+    wcscpy(m_nid.szTip, L"Lapdroid - Bluetooth Input Bridge");
 
     Shell_NotifyIconW(NIM_ADD, &m_nid);
     m_trayAdded = true;
@@ -334,7 +334,7 @@ void MainWindow::RemoveTrayIcon() {
 void MainWindow::UpdateTrayTooltip() {
     if (!m_trayAdded) return;
 
-    std::wstring tip = L"S24 Input Bridge - ";
+    std::wstring tip = L"Lapdroid - ";
     if (m_btManager->IsConnected()) {
         tip += L"Connected";
     } else if (m_btManager->GetStatus() == ConnectionStatus::Listening) {

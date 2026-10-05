@@ -7,11 +7,13 @@ import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.os.Build;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
 
 public class CursorOverlayView extends View {
+    private final Context mContext;
     private final WindowManager mWindowManager;
     private final WindowManager.LayoutParams mParams;
     private final Paint mPaintPointer;
@@ -26,15 +28,18 @@ public class CursorOverlayView extends View {
 
     public CursorOverlayView(Context context) {
         super(context);
+        mContext = context;
         mWindowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
 
         Point size = new Point();
         if (mWindowManager != null && mWindowManager.getDefaultDisplay() != null) {
-            mWindowManager.getDefaultDisplay().getRealSize(size);
-            mScreenWidth = size.x;
-            mScreenHeight = size.y;
-            mX = mScreenWidth / 2f;
-            mY = mScreenHeight / 2f;
+            try {
+                mWindowManager.getDefaultDisplay().getRealSize(size);
+                mScreenWidth = size.x;
+                mScreenHeight = size.y;
+                mX = mScreenWidth / 2f;
+                mY = mScreenHeight / 2f;
+            } catch (Exception ignored) {}
         }
 
         int overlayType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
@@ -76,13 +81,20 @@ public class CursorOverlayView extends View {
     }
 
     public synchronized void show() {
-        if (!mIsAttached && mWindowManager != null) {
-            try {
-                mWindowManager.addView(this, mParams);
-                mIsAttached = true;
-            } catch (Exception e) {
-                e.printStackTrace();
+        if (mIsAttached || mWindowManager == null) return;
+
+        // Defensive check: only attempt addView if overlay permission is granted
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(mContext)) {
+                return; // Do not crash if permission not yet granted
             }
+        }
+
+        try {
+            mWindowManager.addView(this, mParams);
+            mIsAttached = true;
+        } catch (Exception e) {
+            mIsAttached = false;
         }
     }
 
@@ -90,14 +102,16 @@ public class CursorOverlayView extends View {
         if (mIsAttached && mWindowManager != null) {
             try {
                 mWindowManager.removeView(this);
-                mIsAttached = false;
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            } catch (Exception ignored) {}
+            mIsAttached = false;
         }
     }
 
     public synchronized void moveDelta(int dx, int dy) {
+        if (!mIsAttached) {
+            show();
+        }
+
         mX = Math.max(0, Math.min(mScreenWidth - 1, mX + dx));
         mY = Math.max(0, Math.min(mScreenHeight - 1, mY + dy));
 
@@ -105,7 +119,7 @@ public class CursorOverlayView extends View {
             mParams.x = (int) mX;
             mParams.y = (int) mY;
             post(() -> {
-                if (mIsAttached) {
+                if (mIsAttached && mWindowManager != null) {
                     try {
                         mWindowManager.updateViewLayout(this, mParams);
                     } catch (Exception ignored) {}
@@ -120,14 +134,6 @@ public class CursorOverlayView extends View {
 
     public float getCursorY() {
         return mY;
-    }
-
-    public int getScreenWidth() {
-        return mScreenWidth;
-    }
-
-    public int getScreenHeight() {
-        return mScreenHeight;
     }
 
     @Override

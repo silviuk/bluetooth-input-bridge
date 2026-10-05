@@ -1,5 +1,6 @@
 package com.antigravity.btbridge;
 
+import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -11,6 +12,8 @@ import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ServiceInfo;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
@@ -23,7 +26,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 public class BluetoothBridgeService extends Service {
-    private static final String CHANNEL_ID = "bt_bridge_service_channel";
+    private static final String CHANNEL_ID = "lapdroid_bridge_service_channel";
     private static final int NOTIFICATION_ID = 1001;
 
     private final IBinder mBinder = new LocalBinder();
@@ -53,7 +56,17 @@ public class BluetoothBridgeService extends Service {
         super.onCreate();
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         createNotificationChannel();
-        startForeground(NOTIFICATION_ID, buildNotification("Listening for Windows PC..."));
+
+        try {
+            Notification notification = buildNotification("Lapdroid active");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         mCursorOverlay = new CursorOverlayView(this);
         mCursorOverlay.show();
@@ -96,9 +109,31 @@ public class BluetoothBridgeService extends Service {
             mAcceptThread = null;
         }
 
-        mAcceptThread = new AcceptThread();
-        mAcceptThread.start();
-        notifyStatus("Listening for Windows PC...", false);
+        // Defensive check: verify Bluetooth permissions before opening RFCOMM socket
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                notifyStatus("Waiting for Bluetooth permission...", false);
+                return;
+            }
+        }
+
+        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+            notifyStatus("Bluetooth is disabled", false);
+            return;
+        }
+
+        try {
+            mAcceptThread = new AcceptThread();
+            mAcceptThread.start();
+            notifyStatus("Listening for Windows PC...", false);
+        } catch (Exception e) {
+            notifyStatus("Bluetooth error: " + e.getMessage(), false);
+        }
+
+        // Refresh overlay view
+        if (mCursorOverlay != null) {
+            mCursorOverlay.show();
+        }
     }
 
     public synchronized void connectToDevice(BluetoothDevice device) {
@@ -112,7 +147,12 @@ public class BluetoothBridgeService extends Service {
         }
 
         new Thread(() -> {
-            notifyStatus("Connecting to " + device.getName() + "...", false);
+            String devName = "Device";
+            try {
+                devName = device.getName();
+            } catch (SecurityException ignored) {}
+
+            notifyStatus("Connecting to " + devName + "...", false);
             try {
                 BluetoothSocket socket = device.createRfcommSocketToServiceRecord(Protocol.SPP_UUID);
                 socket.connect();
@@ -141,18 +181,18 @@ public class BluetoothBridgeService extends Service {
                 mmServerSocket = mBluetoothAdapter.listenUsingRfcommWithServiceRecord(
                         Protocol.SERVICE_NAME, Protocol.SPP_UUID);
             } catch (Exception e) {
-                e.printStackTrace();
+                mmServerSocket = null;
             }
         }
 
         @Override
         public void run() {
+            if (mmServerSocket == null) return;
+
             BluetoothSocket socket = null;
             while (!Thread.interrupted()) {
                 try {
-                    if (mmServerSocket != null) {
-                        socket = mmServerSocket.accept();
-                    }
+                    socket = mmServerSocket.accept();
                 } catch (Exception e) {
                     break;
                 }
@@ -265,7 +305,7 @@ public class BluetoothBridgeService extends Service {
 
         switch (type) {
             case Protocol.MSG_MOUSE_MOVE: {
-                if (length >= 4) {
+                if (length >= 4 && mCursorOverlay != null) {
                     short dx = bb.getShort();
                     short dy = bb.getShort();
                     mCursorOverlay.moveDelta(dx, dy);
@@ -274,7 +314,7 @@ public class BluetoothBridgeService extends Service {
             }
 
             case Protocol.MSG_MOUSE_BUTTON: {
-                if (length >= 2) {
+                if (length >= 2 && mCursorOverlay != null) {
                     byte button = bb.get();
                     byte state = bb.get();
 
@@ -302,7 +342,7 @@ public class BluetoothBridgeService extends Service {
             }
 
             case Protocol.MSG_MOUSE_WHEEL: {
-                if (length >= 4) {
+                if (length >= 4 && mCursorOverlay != null) {
                     short deltaY = bb.getShort();
                     float cx = mCursorOverlay.getCursorX();
                     float cy = mCursorOverlay.getCursorY();
@@ -361,7 +401,7 @@ public class BluetoothBridgeService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Bluetooth Input Bridge Service",
+                    "Lapdroid Bridge Service",
                     NotificationManager.IMPORTANCE_LOW
             );
             channel.setDescription("Background Bluetooth RFCOMM listener for Windows keyboard and mouse");
@@ -381,7 +421,7 @@ public class BluetoothBridgeService extends Service {
                 ? new Notification.Builder(this, CHANNEL_ID)
                 : new Notification.Builder(this);
 
-        return builder.setContentTitle("S24 Ultra Input Bridge")
+        return builder.setContentTitle("Lapdroid")
                 .setContentText(text)
                 .setSmallIcon(R.drawable.ic_launcher)
                 .setContentIntent(pi)
@@ -392,7 +432,9 @@ public class BluetoothBridgeService extends Service {
     private void updateNotification(String text) {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) {
-            nm.notify(NOTIFICATION_ID, buildNotification(text));
+            try {
+                nm.notify(NOTIFICATION_ID, buildNotification(text));
+            } catch (Exception ignored) {}
         }
     }
 

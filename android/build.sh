@@ -18,8 +18,8 @@ echo "=== 2. Linking Resources and Generating R.java ==="
     --manifest "${BASE_DIR}/app/src/main/AndroidManifest.xml" \
     --min-sdk-version 26 \
     --target-sdk-version 34 \
-    --version-code 1 \
-    --version-name "0.1.0" \
+    --version-code 2 \
+    --version-name "0.2.0" \
     --java "${BUILD_DIR}/gen" \
     -o "${BUILD_DIR}/unaligned.apk" \
     "${BUILD_DIR}/compiled_res.zip"
@@ -42,35 +42,37 @@ zip -uj "${BUILD_DIR}/unaligned.apk" classes.dex
 cd "${BASE_DIR}"
 
 echo "=== 6. Aligning APK with zipalign ==="
-rm -f "${BIN_DIR}/S24InputBridge-unsigned.apk" "${BIN_DIR}/S24InputBridge.apk"
-"${SDK_BUILD_TOOLS}/zipalign" -v -p 4 "${BUILD_DIR}/unaligned.apk" "${BIN_DIR}/S24InputBridge-unsigned.apk"
+rm -f "${BIN_DIR}/Lapdroid-unsigned.apk" "${BIN_DIR}/Lapdroid.apk" "${BIN_DIR}/S24InputBridge.apk"
+"${SDK_BUILD_TOOLS}/zipalign" -v -p 4 "${BUILD_DIR}/unaligned.apk" "${BIN_DIR}/Lapdroid-unsigned.apk"
 
-echo "=== 7. Signing APK with apksigner ==="
-KEYSTORE="${BUILD_DIR}/debug.keystore"
+echo "=== 7. Signing APK with apksigner (Formal Release Certificate) ==="
+KEYSTORE="${BUILD_DIR}/lapdroid-release.keystore"
 if [ ! -f "${KEYSTORE}" ]; then
     keytool -genkeypair -v \
         -keystore "${KEYSTORE}" \
-        -storepass android \
-        -alias androiddebugkey \
-        -keypass android \
+        -storepass lapdroidpass \
+        -alias lapdroidkey \
+        -keypass lapdroidpass \
         -keyalg RSA \
         -keysize 2048 \
         -validity 10000 \
-        -dname "CN=Android Debug,O=Android,C=US"
+        -dname "CN=Lapdroid, OU=Mobile, O=Lapdroid Open Source, L=Mountain View, ST=California, C=US"
 fi
 
 "${SDK_BUILD_TOOLS}/apksigner" sign \
     --ks "${KEYSTORE}" \
-    --ks-pass pass:android \
-    --ks-key-alias androiddebugkey \
-    --key-pass pass:android \
+    --ks-pass pass:lapdroidpass \
+    --ks-key-alias lapdroidkey \
+    --key-pass pass:lapdroidpass \
     --v1-signing-enabled true \
     --v2-signing-enabled true \
     --v3-signing-enabled true \
-    --out "${BIN_DIR}/S24InputBridge.apk" \
-    "${BIN_DIR}/S24InputBridge-unsigned.apk"
+    --out "${BIN_DIR}/Lapdroid.apk" \
+    "${BIN_DIR}/Lapdroid-unsigned.apk"
 
-rm -f "${BIN_DIR}/S24InputBridge-unsigned.apk"
+# Backward compatibility copy
+cp "${BIN_DIR}/Lapdroid.apk" "${BIN_DIR}/S24InputBridge.apk"
+rm -f "${BIN_DIR}/Lapdroid-unsigned.apk"
 
-echo "=== SUCCESS! Android APK generated: ${BIN_DIR}/S24InputBridge.apk ==="
-ls -lh "${BIN_DIR}/S24InputBridge.apk"
+echo "=== SUCCESS! Lapdroid APK generated: ${BIN_DIR}/Lapdroid.apk ==="
+ls -lh "${BIN_DIR}/Lapdroid.apk"
