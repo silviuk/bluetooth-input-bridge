@@ -70,6 +70,20 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
+        <!-- Optional Direct Input Method for Tricky Apps, Termux, and Games -->
+        <service
+            android:name=".LapdroidInputMethodService"
+            android:label="@string/ime_name"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+
     </application>
 
 </manifest>

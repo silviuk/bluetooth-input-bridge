@@ -428,6 +428,125 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
+            <!-- Tricky Keys & Forwarding Options Section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="Keyboard &amp; Tricky Keys Options"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@color/card_bg"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <!-- Enter Key Option -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Enter Key Behavior"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold" />
+
+                <Spinner
+                    android:id="@+id/sp_enter_mode"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@android:drawable/btn_dropdown" />
+
+                <!-- Tab Key Option -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Tab Key Behavior"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold" />
+
+                <Spinner
+                    android:id="@+id/sp_tab_mode"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@android:drawable/btn_dropdown" />
+
+                <!-- Windows Key Option -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Windows / Super Key Action"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold" />
+
+                <Spinner
+                    android:id="@+id/sp_win_action"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@android:drawable/btn_dropdown" />
+
+                <!-- Shortcuts Checkboxes -->
+                <CheckBox
+                    android:id="@+id/cb_ctrl_shortcuts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:text="Enable Windows Ctrl Shortcuts (Ctrl+C, V, A, X, Z, Backspace)"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp" />
+
+                <CheckBox
+                    android:id="@+id/cb_alt_tab"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:checked="true"
+                    android:text="Enable Alt+Tab as Recent Apps Switcher"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="14dp"
+                    android:layout_marginBottom="14dp"
+                    android:background="#33FFFFFF" />
+
+                <!-- Direct Input IME Option for Tricky Apps -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Direct Input Keyboard (For Termux &amp; Games)"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="If using apps that reject standard accessibility text input (such as Termux, console emulators, remote desktops, or games), enable the optional Lapdroid Direct Input Keyboard in Android Settings."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btn_open_ime_settings"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:backgroundTint="@color/primary"
+                    android:text="Configure Lapdroid Keyboard in Settings"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
+
         </LinearLayout>
     </ScrollView>
 

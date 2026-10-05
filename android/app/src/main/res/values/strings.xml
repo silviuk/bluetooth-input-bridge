@@ -10,4 +10,5 @@
     <string name="notification_channel_name">Lapdroid Bridge Service</string>
     <string name="notification_title">Lapdroid Active</string>
     <string name="notification_text">Bluetooth keyboard &amp; touchpad bridge running in background</string>
+    <string name="ime_name">Lapdroid Direct Input Keyboard</string>
 </resources>

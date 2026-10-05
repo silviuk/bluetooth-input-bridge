@@ -35,7 +35,10 @@ MainWindow::MainWindow(HINSTANCE hInstance, BluetoothManager* btManager, InputCa
     , m_hBtnNotif(NULL)
     , m_hBtnVolUp(NULL)
     , m_hBtnVolDown(NULL)
+    , m_hBtnMute(NULL)
+    , m_hBtnPlay(NULL)
     , m_hBtnLock(NULL)
+    , m_hBtnScreenshot(NULL)
     , m_hEditLogs(NULL)
     , m_hBtnCopyLogs(NULL)
     , m_hBtnClearLogs(NULL)
@@ -156,7 +159,10 @@ void MainWindow::ApplyTheme(bool isDark) {
         if (m_hBtnNotif) SetWindowTheme(m_hBtnNotif, themeName, NULL);
         if (m_hBtnVolDown) SetWindowTheme(m_hBtnVolDown, themeName, NULL);
         if (m_hBtnVolUp) SetWindowTheme(m_hBtnVolUp, themeName, NULL);
+        if (m_hBtnMute) SetWindowTheme(m_hBtnMute, themeName, NULL);
+        if (m_hBtnPlay) SetWindowTheme(m_hBtnPlay, themeName, NULL);
         if (m_hBtnLock) SetWindowTheme(m_hBtnLock, themeName, NULL);
+        if (m_hBtnScreenshot) SetWindowTheme(m_hBtnScreenshot, themeName, NULL);
 
         if (m_hBtnCopyLogs) SetWindowTheme(m_hBtnCopyLogs, themeName, NULL);
         if (m_hBtnClearLogs) SetWindowTheme(m_hBtnClearLogs, themeName, NULL);
@@ -388,7 +394,8 @@ void MainWindow::CreateControls() {
     curY += 34;
 
     // Hint label
-    HWND hHint = CreateWindowExW(0, L"STATIC", L"Tip: While capturing, mouse moves the phone pointer and keys type on your phone. Press F12 to immediately return control to Windows.",
+    HWND hHint = CreateWindowExW(0, L"STATIC",
+        L"Tip: Press F12 to capture/release. Tricky keys forwarded: Esc (Back), Win (Home), Alt+Tab (Recents), PrintScreen (Screenshot), Ctrl+C/V/A/X/Z (Clipboard), and Volume/Media keys.",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
         padX + 10, curY, 475, 34, m_hWnd, NULL, m_hInstance, NULL);
     SendMessageW(hHint, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
@@ -403,40 +410,56 @@ void MainWindow::CreateControls() {
     m_controlsTabHwnds.push_back(hActionLabel);
     curY += 24;
 
-    int btnW = 65;
-    int gap = 3;
-    int actX = padX + 5;
+    int btnW = 90;
+    int gap = 6;
+    int row1X = padX + 10;
 
-    m_hBtnBack = CreateWindowExW(0, L"BUTTON", L"Back", WS_CHILD | WS_VISIBLE, actX, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_BACK, m_hInstance, NULL);
-    actX += btnW + gap;
-    m_hBtnHome = CreateWindowExW(0, L"BUTTON", L"Home", WS_CHILD | WS_VISIBLE, actX, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_HOME, m_hInstance, NULL);
-    actX += btnW + gap;
-    m_hBtnRecents = CreateWindowExW(0, L"BUTTON", L"Recents", WS_CHILD | WS_VISIBLE, actX, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_RECENTS, m_hInstance, NULL);
-    actX += btnW + gap;
-    m_hBtnNotif = CreateWindowExW(0, L"BUTTON", L"Notif", WS_CHILD | WS_VISIBLE, actX, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_NOTIF, m_hInstance, NULL);
-    actX += btnW + gap;
-    m_hBtnVolDown = CreateWindowExW(0, L"BUTTON", L"Vol -", WS_CHILD | WS_VISIBLE, actX, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_VOLDOWN, m_hInstance, NULL);
-    actX += btnW + gap;
-    m_hBtnVolUp = CreateWindowExW(0, L"BUTTON", L"Vol +", WS_CHILD | WS_VISIBLE, actX, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_VOLUP, m_hInstance, NULL);
-    actX += btnW + gap;
-    m_hBtnLock = CreateWindowExW(0, L"BUTTON", L"Lock", WS_CHILD | WS_VISIBLE, actX, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_LOCK, m_hInstance, NULL);
+    // Row 1: System Navigation & Lock
+    m_hBtnBack = CreateWindowExW(0, L"BUTTON", L"Back", WS_CHILD | WS_VISIBLE, row1X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_BACK, m_hInstance, NULL);
+    row1X += btnW + gap;
+    m_hBtnHome = CreateWindowExW(0, L"BUTTON", L"Home", WS_CHILD | WS_VISIBLE, row1X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_HOME, m_hInstance, NULL);
+    row1X += btnW + gap;
+    m_hBtnRecents = CreateWindowExW(0, L"BUTTON", L"Recents", WS_CHILD | WS_VISIBLE, row1X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_RECENTS, m_hInstance, NULL);
+    row1X += btnW + gap;
+    m_hBtnNotif = CreateWindowExW(0, L"BUTTON", L"Notif", WS_CHILD | WS_VISIBLE, row1X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_NOTIF, m_hInstance, NULL);
+    row1X += btnW + gap;
+    m_hBtnLock = CreateWindowExW(0, L"BUTTON", L"Lock", WS_CHILD | WS_VISIBLE, row1X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_LOCK, m_hInstance, NULL);
+    curY += 32;
+
+    int row2X = padX + 10;
+    // Row 2: Media, Volume & Screenshot
+    m_hBtnVolDown = CreateWindowExW(0, L"BUTTON", L"Vol -", WS_CHILD | WS_VISIBLE, row2X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_VOLDOWN, m_hInstance, NULL);
+    row2X += btnW + gap;
+    m_hBtnVolUp = CreateWindowExW(0, L"BUTTON", L"Vol +", WS_CHILD | WS_VISIBLE, row2X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_VOLUP, m_hInstance, NULL);
+    row2X += btnW + gap;
+    m_hBtnMute = CreateWindowExW(0, L"BUTTON", L"Mute", WS_CHILD | WS_VISIBLE, row2X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_MUTE, m_hInstance, NULL);
+    row2X += btnW + gap;
+    m_hBtnPlay = CreateWindowExW(0, L"BUTTON", L"Play/Pause", WS_CHILD | WS_VISIBLE, row2X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_PLAY, m_hInstance, NULL);
+    row2X += btnW + gap;
+    m_hBtnScreenshot = CreateWindowExW(0, L"BUTTON", L"Screenshot", WS_CHILD | WS_VISIBLE, row2X, curY, btnW, 28, m_hWnd, (HMENU)IDC_BTN_ACT_SCREENSHOT, m_hInstance, NULL);
+    curY += 36;
 
     SendMessageW(m_hBtnBack, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     SendMessageW(m_hBtnHome, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     SendMessageW(m_hBtnRecents, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     SendMessageW(m_hBtnNotif, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
+    SendMessageW(m_hBtnLock, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     SendMessageW(m_hBtnVolDown, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     SendMessageW(m_hBtnVolUp, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
-    SendMessageW(m_hBtnLock, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
+    SendMessageW(m_hBtnMute, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
+    SendMessageW(m_hBtnPlay, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
+    SendMessageW(m_hBtnScreenshot, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
 
     m_controlsTabHwnds.push_back(m_hBtnBack);
     m_controlsTabHwnds.push_back(m_hBtnHome);
     m_controlsTabHwnds.push_back(m_hBtnRecents);
     m_controlsTabHwnds.push_back(m_hBtnNotif);
+    m_controlsTabHwnds.push_back(m_hBtnLock);
     m_controlsTabHwnds.push_back(m_hBtnVolDown);
     m_controlsTabHwnds.push_back(m_hBtnVolUp);
-    m_controlsTabHwnds.push_back(m_hBtnLock);
-    curY += 36;
+    m_controlsTabHwnds.push_back(m_hBtnMute);
+    m_controlsTabHwnds.push_back(m_hBtnPlay);
+    m_controlsTabHwnds.push_back(m_hBtnScreenshot);
 
     // Minimize to System Tray button
     m_hBtnMinimizeTray = CreateWindowExW(0, L"BUTTON", L"Hide to System Tray (Keep Running)",
@@ -855,9 +878,12 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
                 case IDC_BTN_ACT_HOME:     OnSendAction(ACT_HOME); break;
                 case IDC_BTN_ACT_RECENTS:  OnSendAction(ACT_RECENTS); break;
                 case IDC_BTN_ACT_NOTIF:    OnSendAction(ACT_NOTIFICATIONS); break;
-                case IDC_BTN_ACT_VOLDOWN:  OnSendAction(ACT_VOLUME_DOWN); break;
-                case IDC_BTN_ACT_VOLUP:    OnSendAction(ACT_VOLUME_UP); break;
-                case IDC_BTN_ACT_LOCK:     OnSendAction(ACT_LOCK_SCREEN); break;
+                case IDC_BTN_ACT_VOLDOWN:    OnSendAction(ACT_VOLUME_DOWN); break;
+                case IDC_BTN_ACT_VOLUP:      OnSendAction(ACT_VOLUME_UP); break;
+                case IDC_BTN_ACT_MUTE:       OnSendAction(ACT_VOLUME_MUTE); break;
+                case IDC_BTN_ACT_PLAY:       OnSendAction(ACT_MEDIA_PLAY_PAUSE); break;
+                case IDC_BTN_ACT_LOCK:       OnSendAction(ACT_LOCK_SCREEN); break;
+                case IDC_BTN_ACT_SCREENSHOT: OnSendAction(ACT_SCREENSHOT); break;
 
                 // Tray Menu Items
                 case IDM_TRAY_OPEN:

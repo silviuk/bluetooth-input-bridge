@@ -30,13 +30,25 @@ public class Protocol {
     public static final byte STATE_DOWN = 0x01;
 
     // System Actions
-    public static final byte ACT_BACK          = 0x01;
-    public static final byte ACT_HOME          = 0x02;
-    public static final byte ACT_RECENTS       = 0x03;
-    public static final byte ACT_NOTIFICATIONS = 0x04;
-    public static final byte ACT_VOLUME_UP     = 0x05;
-    public static final byte ACT_VOLUME_DOWN   = 0x06;
-    public static final byte ACT_LOCK_SCREEN   = 0x07;
+    public static final byte ACT_BACK             = 0x01;
+    public static final byte ACT_HOME             = 0x02;
+    public static final byte ACT_RECENTS          = 0x03;
+    public static final byte ACT_NOTIFICATIONS    = 0x04;
+    public static final byte ACT_VOLUME_UP        = 0x05;
+    public static final byte ACT_VOLUME_DOWN      = 0x06;
+    public static final byte ACT_LOCK_SCREEN      = 0x07;
+    public static final byte ACT_VOLUME_MUTE      = 0x08;
+    public static final byte ACT_MEDIA_PLAY_PAUSE = 0x09;
+    public static final byte ACT_MEDIA_NEXT       = 0x0A;
+    public static final byte ACT_MEDIA_PREV       = 0x0B;
+    public static final byte ACT_SCREENSHOT       = 0x0C;
+    public static final byte ACT_QUICK_SETTINGS   = 0x0D;
+
+    // Key Modifiers
+    public static final byte MOD_SHIFT            = 0x01;
+    public static final byte MOD_CTRL             = 0x02;
+    public static final byte MOD_ALT              = 0x04;
+    public static final byte MOD_META             = 0x08;
 
     public static byte calcChecksum(byte type, byte len, byte[] payload, int offset, int payloadLen) {
         byte cs = (byte) (type ^ len);

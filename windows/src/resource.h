@@ -34,6 +34,9 @@
 #define IDC_BTN_ACT_VOLUP       315
 #define IDC_BTN_ACT_VOLDOWN     316
 #define IDC_BTN_ACT_LOCK        317
+#define IDC_BTN_ACT_MUTE        324
+#define IDC_BTN_ACT_PLAY        325
+#define IDC_BTN_ACT_SCREENSHOT  326
 #define IDC_LABEL_RADIO_SERVER  318
 #define IDC_LABEL_RADIO_CLIENT  319
 #define IDC_TAB_MAIN            320

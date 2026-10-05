@@ -19,6 +19,19 @@ uint16_t WindowsVkToAndroidKeycode(DWORD vk) {
         return 144 + (vk - VK_NUMPAD0); // KEYCODE_NUMPAD_0 (144) ..
     }
 
+    // Function keys F1-F12
+    if (vk >= VK_F1 && vk <= VK_F12) {
+        return 131 + (vk - VK_F1); // KEYCODE_F1 (131) .. KEYCODE_F12 (142)
+    }
+
+    // Numpad math operators
+    if (vk == VK_MULTIPLY) return 155; // KEYCODE_NUMPAD_MULTIPLY
+    if (vk == VK_ADD)      return 157; // KEYCODE_NUMPAD_ADD
+    if (vk == VK_SEPARATOR)return 159; // KEYCODE_NUMPAD_COMMA
+    if (vk == VK_SUBTRACT) return 156; // KEYCODE_NUMPAD_SUBTRACT
+    if (vk == VK_DECIMAL)  return 158; // KEYCODE_NUMPAD_DOT
+    if (vk == VK_DIVIDE)   return 154; // KEYCODE_NUMPAD_DIVIDE
+
     switch (vk) {
         case VK_RETURN:   return 66;  // KEYCODE_ENTER
         case VK_BACK:     return 67;  // KEYCODE_DEL
@@ -37,6 +50,14 @@ uint16_t WindowsVkToAndroidKeycode(DWORD vk) {
         case VK_LWIN:
         case VK_RWIN:     return 3;   // KEYCODE_HOME
         case VK_APPS:     return 82;  // KEYCODE_MENU
+
+        // Additional editing & locks
+        case VK_INSERT:   return 124; // KEYCODE_INSERT
+        case VK_CAPITAL:  return 115; // KEYCODE_CAPS_LOCK
+        case VK_NUMLOCK:  return 143; // KEYCODE_NUM_LOCK
+        case VK_SCROLL:   return 116; // KEYCODE_SCROLL_LOCK
+        case VK_SNAPSHOT: return 120; // KEYCODE_SYSRQ (PrintScreen / Screenshot)
+        case VK_PAUSE:    return 85;  // KEYCODE_MEDIA_PLAY_PAUSE
 
         // Modifiers
         case VK_SHIFT:
@@ -69,6 +90,7 @@ uint16_t WindowsVkToAndroidKeycode(DWORD vk) {
         case VK_MEDIA_NEXT_TRACK:  return 87;  // KEYCODE_MEDIA_NEXT
         case VK_MEDIA_PREV_TRACK:  return 88;  // KEYCODE_MEDIA_PREVIOUS
         case VK_MEDIA_PLAY_PAUSE:  return 85;  // KEYCODE_MEDIA_PLAY_PAUSE
+        case VK_MEDIA_STOP:        return 86;  // KEYCODE_MEDIA_STOP
 
         default: return 0; // Unknown
     }
@@ -202,12 +224,44 @@ LRESULT InputCapture::HandleKeyboardHook(int nCode, WPARAM wParam, LPARAM lParam
     // Map to Android keycode
     uint16_t androidKc = WindowsVkToAndroidKeycode(pKbd->vkCode);
 
-    // Try to get unicode character
+    // Accurate keyboard state for low-level hook (low-level hooks do not share thread message queue states)
+    BYTE keyboardState[256] = {0};
+    if (GetAsyncKeyState(VK_SHIFT) & 0x8000)    keyboardState[VK_SHIFT]   = 0x80;
+    if (GetAsyncKeyState(VK_LSHIFT) & 0x8000)   keyboardState[VK_LSHIFT]  = 0x80;
+    if (GetAsyncKeyState(VK_RSHIFT) & 0x8000)   keyboardState[VK_RSHIFT]  = 0x80;
+    if (GetAsyncKeyState(VK_CONTROL) & 0x8000)  keyboardState[VK_CONTROL] = 0x80;
+    if (GetAsyncKeyState(VK_LCONTROL) & 0x8000) keyboardState[VK_LCONTROL]= 0x80;
+    if (GetAsyncKeyState(VK_RCONTROL) & 0x8000) keyboardState[VK_RCONTROL]= 0x80;
+    if (GetAsyncKeyState(VK_MENU) & 0x8000)     keyboardState[VK_MENU]    = 0x80;
+    if (GetAsyncKeyState(VK_LMENU) & 0x8000)    keyboardState[VK_LMENU]   = 0x80;
+    if (GetAsyncKeyState(VK_RMENU) & 0x8000)    keyboardState[VK_RMENU]   = 0x80;
+    if (GetKeyState(VK_CAPITAL) & 0x0001)     keyboardState[VK_CAPITAL] = 0x01;
+    if (GetKeyState(VK_NUMLOCK) & 0x0001)     keyboardState[VK_NUMLOCK] = 0x01;
+
+    // Try to get unicode character using active keyboard layout
     WCHAR unicodeChar = 0;
-    BYTE keyboardState[256];
-    GetKeyboardState(keyboardState);
-    if (ToUnicode(pKbd->vkCode, pKbd->scanCode, keyboardState, &unicodeChar, 1, 0) != 1) {
+    HKL hkl = GetKeyboardLayout(0);
+    if (ToUnicodeEx(pKbd->vkCode, pKbd->scanCode, keyboardState, &unicodeChar, 1, 0, hkl) != 1) {
         unicodeChar = 0;
+    }
+
+    // Direct fallback for keys that have fixed printable representation
+    if (unicodeChar == 0) {
+        if (pKbd->vkCode >= VK_NUMPAD0 && pKbd->vkCode <= VK_NUMPAD9) {
+            unicodeChar = L'0' + (WCHAR)(pKbd->vkCode - VK_NUMPAD0);
+        } else if (pKbd->vkCode == VK_MULTIPLY) {
+            unicodeChar = L'*';
+        } else if (pKbd->vkCode == VK_ADD) {
+            unicodeChar = L'+';
+        } else if (pKbd->vkCode == VK_SUBTRACT) {
+            unicodeChar = L'-';
+        } else if (pKbd->vkCode == VK_DECIMAL) {
+            unicodeChar = L'.';
+        } else if (pKbd->vkCode == VK_DIVIDE) {
+            unicodeChar = L'/';
+        } else if (pKbd->vkCode == VK_SPACE) {
+            unicodeChar = L' ';
+        }
     }
 
     KeyEventPayload payload;

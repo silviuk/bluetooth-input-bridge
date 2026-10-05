@@ -56,13 +56,19 @@ enum KeyModifiers : uint8_t {
 
 // System Actions
 enum SystemAction : uint8_t {
-    ACT_BACK          = 0x01,
-    ACT_HOME          = 0x02,
-    ACT_RECENTS       = 0x03,
-    ACT_NOTIFICATIONS = 0x04,
-    ACT_VOLUME_UP     = 0x05,
-    ACT_VOLUME_DOWN   = 0x06,
-    ACT_LOCK_SCREEN   = 0x07
+    ACT_BACK             = 0x01,
+    ACT_HOME             = 0x02,
+    ACT_RECENTS          = 0x03,
+    ACT_NOTIFICATIONS    = 0x04,
+    ACT_VOLUME_UP        = 0x05,
+    ACT_VOLUME_DOWN      = 0x06,
+    ACT_LOCK_SCREEN      = 0x07,
+    ACT_VOLUME_MUTE      = 0x08,
+    ACT_MEDIA_PLAY_PAUSE = 0x09,
+    ACT_MEDIA_NEXT       = 0x0A,
+    ACT_MEDIA_PREV       = 0x0B,
+    ACT_SCREENSHOT       = 0x0C,
+    ACT_QUICK_SETTINGS   = 0x0D
 };
 
 // Packet Header

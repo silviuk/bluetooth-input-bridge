@@ -18,8 +18,10 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
@@ -71,6 +73,14 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     private Button mBtnGrantOverlay;
     private Button mBtnGrantAccess;
     private EditText mEtTestInput;
+
+    // Keyboard & Tricky Keys Options
+    private Spinner mSpEnterMode;
+    private Spinner mSpTabMode;
+    private Spinner mSpWinAction;
+    private CheckBox mCbCtrlShortcuts;
+    private CheckBox mCbAltTab;
+    private Button mBtnOpenImeSettings;
 
     // Logs
     private TextView mTvLogContent;
@@ -136,6 +146,15 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         mBtnGrantOverlay = findViewById(R.id.btn_grant_overlay);
         mBtnGrantAccess = findViewById(R.id.btn_grant_access);
         mEtTestInput = findViewById(R.id.et_test_input);
+
+        // Keyboard & Tricky Keys Options
+        mSpEnterMode = findViewById(R.id.sp_enter_mode);
+        mSpTabMode = findViewById(R.id.sp_tab_mode);
+        mSpWinAction = findViewById(R.id.sp_win_action);
+        mCbCtrlShortcuts = findViewById(R.id.cb_ctrl_shortcuts);
+        mCbAltTab = findViewById(R.id.cb_alt_tab);
+        mBtnOpenImeSettings = findViewById(R.id.btn_open_ime_settings);
+        initKeyboardOptions();
 
         mTvLogContent = findViewById(R.id.tv_log_content);
         mTvLogCount = findViewById(R.id.tv_log_count);
@@ -262,6 +281,77 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
             startBridgeServiceSafe();
             refreshPairedDevices();
         }
+    }
+
+    private void initKeyboardOptions() {
+        BridgeSettings settings = BridgeSettings.getInstance(this);
+
+        // 1. Enter Mode
+        String[] enterModes = {
+            "Smart (Newline in multiline, Action/Click in single-line)",
+            "Always Insert Newline (\\n)",
+            "Always Submit / Send Action"
+        };
+        ArrayAdapter<String> enterAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, enterModes);
+        mSpEnterMode.setAdapter(enterAdapter);
+        mSpEnterMode.setSelection(settings.getEnterMode());
+        mSpEnterMode.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                settings.setEnterMode(position);
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        // 2. Tab Mode
+        String[] tabModes = {
+            "Navigate Focus to Next Field (Shift+Tab for Prev)",
+            "Insert 4 Spaces",
+            "Insert Tab Character (\\t)"
+        };
+        ArrayAdapter<String> tabAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, tabModes);
+        mSpTabMode.setAdapter(tabAdapter);
+        mSpTabMode.setSelection(settings.getTabMode());
+        mSpTabMode.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                settings.setTabMode(position);
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        // 3. Windows / Meta Key Action
+        String[] winActions = {
+            "Open Android Home Screen",
+            "Open Notification Shade",
+            "Open Recent Apps Switcher"
+        };
+        ArrayAdapter<String> winAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, winActions);
+        mSpWinAction.setAdapter(winAdapter);
+        mSpWinAction.setSelection(settings.getWinAction());
+        mSpWinAction.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                settings.setWinAction(position);
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        // 4. Checkboxes
+        mCbCtrlShortcuts.setChecked(settings.isCtrlShortcutsEnabled());
+        mCbCtrlShortcuts.setOnCheckedChangeListener((btn, isChecked) -> settings.setCtrlShortcutsEnabled(isChecked));
+
+        mCbAltTab.setChecked(settings.isAltTabEnabled());
+        mCbAltTab.setOnCheckedChangeListener((btn, isChecked) -> settings.setAltTabEnabled(isChecked));
+
+        // 5. IME Settings button
+        mBtnOpenImeSettings.setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS));
+            } catch (Exception e) {
+                Toast.makeText(this, "Could not open Keyboard Settings: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void switchTab(boolean showControls) {

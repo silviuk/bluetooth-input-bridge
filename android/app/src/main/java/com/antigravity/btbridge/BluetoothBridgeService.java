@@ -469,16 +469,58 @@ public class BluetoothBridgeService extends Service {
                     char unicodeChar = (char) (bb.getShort() & 0xFFFF);
 
                     if (state == Protocol.STATE_DOWN) {
-                        InputAccessibilityService accessService = InputAccessibilityService.getInstance();
-                        if (androidKc == 111 || androidKc == 4) { // Esc / Back
-                            if (accessService != null) accessService.performAction(Protocol.ACT_BACK);
-                        } else if (androidKc == 3) { // Win / Home
-                            if (accessService != null) accessService.performAction(Protocol.ACT_HOME);
-                        } else if (androidKc == 187) { // Recents
-                            if (accessService != null) accessService.performAction(Protocol.ACT_RECENTS);
+                        // 1. Direct Input IME Check (for tricky apps, Termux, and games)
+                        LapdroidInputMethodService ime = LapdroidInputMethodService.getInstance();
+                        if (ime != null && ime.forwardKey(androidKc, unicodeChar, modifiers)) {
+                            AppLogger.d("BT-Bridge", "Key forwarded directly via Lapdroid IME: kc=" + androidKc);
                         } else {
-                            if (accessService != null) {
-                                accessService.injectTextOrKey(androidKc, unicodeChar);
+                            InputAccessibilityService accessService = InputAccessibilityService.getInstance();
+                            BridgeSettings settings = BridgeSettings.getInstance(this);
+
+                            // 2. Alt + Tab (Recent Apps Switcher)
+                            if (settings.isAltTabEnabled() && (modifiers & Protocol.MOD_ALT) != 0 && (androidKc == 61 || winVk == 9)) {
+                                if (accessService != null) accessService.performAction(Protocol.ACT_RECENTS);
+                            }
+                            // 3. PrintScreen (Screenshot)
+                            else if (androidKc == 120 || winVk == 44) {
+                                if (accessService != null) accessService.performAction(Protocol.ACT_SCREENSHOT);
+                            }
+                            // 4. Volume & Audio Controls
+                            else if (androidKc == 24) { // KEYCODE_VOLUME_UP
+                                if (accessService != null) accessService.performAction(Protocol.ACT_VOLUME_UP);
+                            } else if (androidKc == 25) { // KEYCODE_VOLUME_DOWN
+                                if (accessService != null) accessService.performAction(Protocol.ACT_VOLUME_DOWN);
+                            } else if (androidKc == 164) { // KEYCODE_VOLUME_MUTE
+                                if (accessService != null) accessService.performAction(Protocol.ACT_VOLUME_MUTE);
+                            }
+                            // 5. Media Playback Controls
+                            else if (androidKc == 85) { // KEYCODE_MEDIA_PLAY_PAUSE
+                                if (accessService != null) accessService.performAction(Protocol.ACT_MEDIA_PLAY_PAUSE);
+                            } else if (androidKc == 87) { // KEYCODE_MEDIA_NEXT
+                                if (accessService != null) accessService.performAction(Protocol.ACT_MEDIA_NEXT);
+                            } else if (androidKc == 88) { // KEYCODE_MEDIA_PREVIOUS
+                                if (accessService != null) accessService.performAction(Protocol.ACT_MEDIA_PREV);
+                            }
+                            // 6. Navigation System Keys
+                            else if (androidKc == 111 || androidKc == 4) { // Esc / Back
+                                if (accessService != null) accessService.performAction(Protocol.ACT_BACK);
+                            } else if (androidKc == 3) { // Windows / Meta Key
+                                int winAction = settings.getWinAction();
+                                if (winAction == BridgeSettings.WIN_ACTION_NOTIF) {
+                                    if (accessService != null) accessService.performAction(Protocol.ACT_NOTIFICATIONS);
+                                } else if (winAction == BridgeSettings.WIN_ACTION_RECENTS) {
+                                    if (accessService != null) accessService.performAction(Protocol.ACT_RECENTS);
+                                } else {
+                                    if (accessService != null) accessService.performAction(Protocol.ACT_HOME);
+                                }
+                            } else if (androidKc == 187) { // Recents
+                                if (accessService != null) accessService.performAction(Protocol.ACT_RECENTS);
+                            }
+                            // 7. General Text & Key Injection
+                            else {
+                                if (accessService != null) {
+                                    accessService.injectTextOrKey(androidKc, unicodeChar, modifiers);
+                                }
                             }
                         }
 

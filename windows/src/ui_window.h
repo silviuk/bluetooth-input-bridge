@@ -96,7 +96,10 @@ private:
     HWND m_hBtnNotif;
     HWND m_hBtnVolUp;
     HWND m_hBtnVolDown;
+    HWND m_hBtnMute;
+    HWND m_hBtnPlay;
     HWND m_hBtnLock;
+    HWND m_hBtnScreenshot;
 
     // Logs tab elements
     HWND m_hEditLogs;
