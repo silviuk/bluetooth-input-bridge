@@ -2,7 +2,7 @@ CXX = x86_64-w64-mingw32-g++
 WINDRES = x86_64-w64-mingw32-windres
 MAKENSIS = makensis
 
-CXXFLAGS = -std=c++17 -O2 -mwindows -municode -DUNICODE -D_UNICODE -Wall
+CXXFLAGS = -std=c++17 -O2 -mwindows -municode -DUNICODE -D_UNICODE -Wall -static -static-libgcc -static-libstdc++ -s
 LIBS = -lws2_32 -lbthprops -lcomctl32 -lgdi32 -luser32 -lshell32 -lole32
 
 BIN_DIR = ../bin

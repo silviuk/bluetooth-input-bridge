@@ -34,10 +34,10 @@ Pre-built release packages are available in [`releases/v0.2/`](file:///root/.gem
 
 | File | Type | Size | Description |
 | :--- | :--- | :--- | :--- |
-| [**`Lapdroid-Setup.exe`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid-Setup.exe) | Windows Setup Installer | ~216 KB | Professional installer for Windows: installs to Program Files, creates Start Menu & Desktop shortcuts, and includes clean uninstaller. |
-| [**`Lapdroid.exe`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid.exe) | Standalone Executable | ~214 KB | Portable, self-contained 64-bit native Windows executable. No .NET runtime required. |
+| [**`Lapdroid-Setup.exe`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid-Setup.exe) | Windows Setup Installer | ~503 KB | Professional installer for Windows: installs to Program Files, creates Start Menu & Desktop shortcuts, and includes clean uninstaller. |
+| [**`Lapdroid.exe`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid.exe) | Standalone Executable | ~1.1 MB | Portable, fully self-contained 64-bit native Windows executable. Zero external DLL or runtime dependencies. |
 | [**`Lapdroid.apk`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid.apk) | Android Application (APK) | ~29 KB | Signed APK with modern Android 14 (API 34) support, permission guards, and zero-crash initialization. |
-| [**`Lapdroid-v0.2.zip`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid-v0.2.zip) | Complete Release Bundle | ~250 KB | ZIP archive containing Windows installer, portable executable, Android APK, and checksums. |
+| [**`Lapdroid-v0.2.zip`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid-v0.2.zip) | Complete Release Bundle | ~813 KB | ZIP archive containing Windows installer, portable executable, Android APK, and checksums. |
 | [**`SHA256SUMS.txt`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/SHA256SUMS.txt) | Verification Checksums | ~1 KB | SHA-256 cryptographic hashes for integrity verification. |
 
 ---

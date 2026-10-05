@@ -27,12 +27,18 @@ The project and all apps are now officially named **Lapdroid** (Laptop + Android
 
 ---
 
+### 4. Fully Static Windows Binaries (Zero Missing DLL Errors)
+- Windows binaries are now compiled with `-static -static-libgcc -static-libstdc++`, bundling all runtime routines directly into the executable.
+- Eliminates any dependency on `libgcc_s_seh-1.dll`, `libstdc++-6.dll`, or `libwinpthread-1.dll`. Runs out-of-the-box on any standard Windows PC.
+
+---
+
 ## Release Assets
 
 | Asset | Format | Size | SHA256 Checksum |
 | :--- | :--- | :--- | :--- |
-| **`Lapdroid-Setup.exe`** | Windows Setup Installer | ~216 KB | `83f56a5a475c5fc76fc61e05819c227585162bb2ff2c7ce079d882897552d422` |
-| **`Lapdroid.exe`** | Standalone Windows Executable | ~214 KB | `9e2d9235e6ad2fc2041d72a111401bf6f20d700a5b65f81aa510a3acbd4af6ab` |
+| **`Lapdroid-Setup.exe`** | Windows Setup Installer | ~503 KB | `b08e26a492081cd7b55405187fa59b61eae8b1a9a3f907c39407459e74c91389` |
+| **`Lapdroid.exe`** | Standalone Windows Executable | ~1.1 MB | `9a986184284d7bbde935de7e2a20242afcf7104bde03a470e631e7d971d9e8c4` |
 | **`Lapdroid.apk`** | Signed Android Application (v2/v3) | ~29 KB | `5545f746642ab28986ecddc44fe17bdb4f7cc2bdfafb2ec1df76a1223d01406c` |
-| **`Lapdroid-v0.2.zip`** | All-in-one Release Archive | ~250 KB | `e9983740df33beedbf0e8cef04e39748300f587f950f8308dceb5399fad02483` |
+| **`Lapdroid-v0.2.zip`** | All-in-one Release Archive | ~813 KB | `2cf8345983e845c8a63966e61462762fc9fd46178fe8ff0b9362aab9bb7ed6f7` |
 | **`SHA256SUMS.txt`** | Integrity Hashes | ~1 KB | Verification checksums for all release binaries |
