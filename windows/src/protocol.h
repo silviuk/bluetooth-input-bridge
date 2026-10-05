@@ -24,7 +24,8 @@ enum MessageType : uint8_t {
     MSG_KEY_EVENT       = 0x20,
     MSG_TEXT_STRING     = 0x21,
     MSG_SYSTEM_ACTION   = 0x30,
-    MSG_DEVICE_INFO     = 0x40
+    MSG_DEVICE_INFO     = 0x40,
+    MSG_STYLUS_INPUT    = 0x50
 };
 
 // Mouse Buttons
@@ -105,6 +106,32 @@ struct KeyEventPayload {
 
 struct SystemActionPayload {
     uint8_t action; // SystemAction
+};
+
+// Stylus Actions
+enum StylusAction : uint8_t {
+    STYLUS_HOVER   = 0x00,
+    STYLUS_DOWN    = 0x01,
+    STYLUS_MOVE    = 0x02,
+    STYLUS_UP      = 0x03
+};
+
+// Stylus Buttons / Flags
+enum StylusFlags : uint8_t {
+    STYLUS_FLAG_TIP      = 0x01, // touching screen
+    STYLUS_FLAG_BARREL   = 0x02, // side button pressed
+    STYLUS_FLAG_ERASER   = 0x04, // eraser tip / inverted
+    STYLUS_FLAG_IN_RANGE = 0x08  // hovering within digitizer range
+};
+
+struct StylusInputPayload {
+    uint8_t  action;      // StylusAction
+    uint8_t  flags;       // StylusFlags
+    uint16_t norm_x;      // 0 to 65535 (normalized screen coordinates)
+    uint16_t norm_y;      // 0 to 65535
+    uint16_t pressure;    // 0 to 1024 (Windows PT_PEN standard scale)
+    int8_t   tilt_x;      // -90 to +90 degrees
+    int8_t   tilt_y;      // -90 to +90 degrees
 };
 
 #pragma pack(pop)

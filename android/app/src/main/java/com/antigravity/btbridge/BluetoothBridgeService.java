@@ -42,6 +42,25 @@ public class BluetoothBridgeService extends Service {
     private boolean mIsServerMode = true;
     private StatusListener mStatusListener;
 
+    private static volatile BluetoothBridgeService sInstance;
+
+    public static BluetoothBridgeService getInstance() {
+        return sInstance;
+    }
+
+    public boolean isConnected() {
+        return mIsConnected;
+    }
+
+    public boolean sendStylusEvent(byte action, byte flags, int normX, int normY, int pressure, int tiltX, int tiltY) {
+        ConnectedThread ct = mConnectedThread;
+        if (ct != null && mIsConnected) {
+            byte[] packet = Protocol.createStylusPacket(action, flags, normX, normY, pressure, tiltX, tiltY);
+            return ct.write(packet);
+        }
+        return false;
+    }
+
     public boolean isServerMode() {
         return mIsServerMode;
     }
@@ -64,6 +83,7 @@ public class BluetoothBridgeService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        sInstance = this;
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         createNotificationChannel();
 
@@ -397,6 +417,17 @@ public class BluetoothBridgeService extends Service {
             }
         }
 
+        public synchronized boolean write(byte[] bytes) {
+            if (mmOutStream == null || !mmRunning) return false;
+            try {
+                mmOutStream.write(bytes);
+                mmOutStream.flush();
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
         public void cancel() {
             mmRunning = false;
             try {
@@ -607,6 +638,7 @@ public class BluetoothBridgeService extends Service {
 
     @Override
     public void onDestroy() {
+        if (sInstance == this) sInstance = null;
         if (mAcceptThread != null) mAcceptThread.cancel();
         if (mConnectedThread != null) mConnectedThread.cancel();
         if (mCursorOverlay != null) mCursorOverlay.hide();

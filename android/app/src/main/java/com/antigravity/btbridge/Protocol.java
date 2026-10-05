@@ -19,6 +19,19 @@ public class Protocol {
     public static final byte MSG_TEXT_STRING   = 0x21;
     public static final byte MSG_SYSTEM_ACTION = 0x30;
     public static final byte MSG_DEVICE_INFO   = 0x40;
+    public static final byte MSG_STYLUS_INPUT  = 0x50;
+
+    // Stylus Actions
+    public static final byte STYLUS_HOVER      = 0x00;
+    public static final byte STYLUS_DOWN       = 0x01;
+    public static final byte STYLUS_MOVE       = 0x02;
+    public static final byte STYLUS_UP         = 0x03;
+
+    // Stylus Buttons / Flags
+    public static final byte STYLUS_FLAG_TIP      = 0x01;
+    public static final byte STYLUS_FLAG_BARREL   = 0x02;
+    public static final byte STYLUS_FLAG_ERASER   = 0x04;
+    public static final byte STYLUS_FLAG_IN_RANGE = 0x08;
 
     // Mouse Buttons
     public static final byte BTN_LEFT   = 0x01;
@@ -56,5 +69,29 @@ public class Protocol {
             cs ^= payload[offset + i];
         }
         return cs;
+    }
+
+    public static byte[] createStylusPacket(byte action, byte flags, int normX, int normY, int pressure, int tiltX, int tiltY) {
+        byte[] payload = new byte[10];
+        payload[0] = action;
+        payload[1] = flags;
+        payload[2] = (byte) (normX & 0xFF);
+        payload[3] = (byte) ((normX >> 8) & 0xFF);
+        payload[4] = (byte) (normY & 0xFF);
+        payload[5] = (byte) ((normY >> 8) & 0xFF);
+        payload[6] = (byte) (pressure & 0xFF);
+        payload[7] = (byte) ((pressure >> 8) & 0xFF);
+        payload[8] = (byte) tiltX;
+        payload[9] = (byte) tiltY;
+
+        byte checksum = calcChecksum(MSG_STYLUS_INPUT, (byte) 10, payload, 0, 10);
+        byte[] packet = new byte[4 + 10 + 1];
+        packet[0] = MAGIC_0;
+        packet[1] = MAGIC_1;
+        packet[2] = MSG_STYLUS_INPUT;
+        packet[3] = 10;
+        System.arraycopy(payload, 0, packet, 4, 10);
+        packet[14] = checksum;
+        return packet;
     }
 }

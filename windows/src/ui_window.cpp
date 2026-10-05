@@ -237,6 +237,16 @@ bool MainWindow::Create() {
         PostMessageW(m_hWnd, WM_APP + 21, (WPARAM)isCapturing, 0);
     });
 
+    // Initialize Stylus / Windows Ink injection
+    m_stylusInjector.Initialize();
+    m_btManager->SetPacketCallback([this](uint8_t type, const uint8_t* payload, uint8_t len) {
+        if (type == MSG_STYLUS_INPUT && len >= sizeof(StylusInputPayload)) {
+            StylusInputPayload stylusPayload;
+            memcpy(&stylusPayload, payload, sizeof(StylusInputPayload));
+            m_stylusInjector.ProcessStylusPacket(stylusPayload);
+        }
+    });
+
     return true;
 }
 
@@ -358,10 +368,20 @@ void MainWindow::CreateControls() {
     // Status label
     m_hStatusText = CreateWindowExW(0, L"STATIC", L"Status: Ready (Disconnected)",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        padX + 10, curY, 475, 22, m_hWnd, (HMENU)IDC_STATUS_TEXT, m_hInstance, NULL);
+        padX + 10, curY, 475, 20, m_hWnd, (HMENU)IDC_STATUS_TEXT, m_hInstance, NULL);
     SendMessageW(m_hStatusText, WM_SETFONT, (WPARAM)m_hFontStatus, TRUE);
     m_controlsTabHwnds.push_back(m_hStatusText);
-    curY += 30;
+    curY += 22;
+
+    std::wstring stylusStatus = m_stylusInjector.IsPenDeviceActive()
+        ? L"Stylus / Ink: Active (Windows Ink PT_PEN with pressure)"
+        : L"Stylus / Ink: Ready (Mouse fallback mode)";
+    m_hLabelStylusStatus = CreateWindowExW(0, L"STATIC", stylusStatus.c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        padX + 10, curY, 475, 18, m_hWnd, NULL, m_hInstance, NULL);
+    SendMessageW(m_hLabelStylusStatus, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
+    m_controlsTabHwnds.push_back(m_hLabelStylusStatus);
+    curY += 24;
 
     // Card 2: Input Redirection
     HWND hInputLabel = CreateWindowExW(0, L"STATIC", L"2. Input Redirection",

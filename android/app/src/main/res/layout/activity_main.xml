@@ -587,6 +587,42 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <!-- Card 5: Stylus & Graphics Tablet Mode -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="16dp"
+                android:background="@color/card_bg"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Stylus &amp; Graphics Tablet Mode"
+                    android:textColor="@color/primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Transform this Android device into a pressure-sensitive graphics tablet for Windows. Draw directly into OneNote, Photoshop, Krita, MS Whiteboard, or Paint using your S-Pen or stylus."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btn_open_digitizer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:backgroundTint="@color/primary"
+                    android:text="Open Graphics Tablet Pad"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
+
         </LinearLayout>
     </ScrollView>
 

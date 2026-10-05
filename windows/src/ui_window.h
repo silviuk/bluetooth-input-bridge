@@ -8,6 +8,7 @@
 #include <vector>
 #include "bluetooth_manager.h"
 #include "input_capture.h"
+#include "stylus_injector.h"
 
 struct ThemeColors {
     bool isDark;
@@ -69,6 +70,7 @@ private:
     HWND m_hWnd;
     BluetoothManager* m_btManager;
     InputCapture* m_inputCapture;
+    StylusInjector m_stylusInjector;
 
     // Tabs
     HWND m_hTabMain;
@@ -87,6 +89,7 @@ private:
     HWND m_hSliderSensitivity;
     HWND m_hLabelSensitivity;
     HWND m_hStatusText;
+    HWND m_hLabelStylusStatus;
     HWND m_hBtnMinimizeTray;
 
     // Action buttons

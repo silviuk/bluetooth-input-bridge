@@ -313,14 +313,53 @@ void BluetoothManager::ConnectThreadProc(BTH_ADDR address) {
 }
 
 void BluetoothManager::ReceiveThreadProc() {
-    uint8_t buffer[512];
+    uint8_t buffer[2048];
+    size_t bufferLen = 0;
     LOG_INFO(L"Bluetooth", L"Receive thread started");
 
     while (m_running && m_clientSocket != INVALID_SOCKET) {
-        int bytesRead = recv(m_clientSocket, (char*)buffer, sizeof(buffer), 0);
+        int bytesRead = recv(m_clientSocket, (char*)(buffer + bufferLen), (int)(sizeof(buffer) - bufferLen), 0);
         if (bytesRead > 0) {
-            if (m_dataCb) {
-                m_dataCb(buffer, (size_t)bytesRead);
+            bufferLen += (size_t)bytesRead;
+
+            size_t offset = 0;
+            while (offset + 4 <= bufferLen) {
+                if (buffer[offset] != PROTOCOL_MAGIC_0 || buffer[offset + 1] != PROTOCOL_MAGIC_1) {
+                    offset++;
+                    continue;
+                }
+
+                uint8_t type = buffer[offset + 2];
+                uint8_t payloadLen = buffer[offset + 3];
+                size_t totalPacketLen = 4 + (size_t)payloadLen + 1; // Header(4) + Payload + Checksum(1)
+
+                if (offset + totalPacketLen > bufferLen) {
+                    // Incomplete packet, wait for more bytes
+                    break;
+                }
+
+                uint8_t checksum = buffer[offset + totalPacketLen - 1];
+                uint8_t calculated = CalcChecksum(type, payloadLen, &buffer[offset + 4]);
+
+                if (checksum == calculated) {
+                    // Dispatch decoded packet
+                    if (m_packetCb) {
+                        m_packetCb(type, &buffer[offset + 4], payloadLen);
+                    }
+                    if (m_dataCb) {
+                        m_dataCb(&buffer[offset], totalPacketLen);
+                    }
+                }
+
+                offset += totalPacketLen;
+            }
+
+            if (offset > 0) {
+                size_t remaining = bufferLen - offset;
+                if (remaining > 0) {
+                    memmove(buffer, buffer + offset, remaining);
+                }
+                bufferLen = remaining;
             }
         } else if (bytesRead == 0 || bytesRead == SOCKET_ERROR) {
             LOG_INFO(L"Bluetooth", L"Connection closed by remote device or lost");

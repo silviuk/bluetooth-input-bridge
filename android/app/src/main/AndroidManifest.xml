@@ -48,6 +48,14 @@
             </intent-filter>
         </activity>
 
+        <!-- Graphics Tablet & Stylus Digitizer Activity -->
+        <activity
+            android:name=".DigitizerActivity"
+            android:label="Lapdroid Graphics Tablet"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:exported="false"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+
         <!-- Foreground Bluetooth Bridge Service -->
         <service
             android:name=".BluetoothBridgeService"

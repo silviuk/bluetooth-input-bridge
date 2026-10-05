@@ -84,6 +84,7 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     private TextView mTvImeStatus;
     private Button mBtnOpenImeSettings;
     private Button mBtnSwitchIme;
+    private Button mBtnOpenDigitizer;
 
     // Logs
     private TextView mTvLogContent;
@@ -373,6 +374,14 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
                 Toast.makeText(this, "Could not open Keyboard Picker: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+
+        // 6. Stylus & Graphics Tablet Pad
+        mBtnOpenDigitizer = findViewById(R.id.btn_open_digitizer);
+        if (mBtnOpenDigitizer != null) {
+            mBtnOpenDigitizer.setOnClickListener(v -> {
+                startActivity(new Intent(MainActivity.this, DigitizerActivity.class));
+            });
+        }
 
         updateImeStatus();
     }

@@ -31,6 +31,7 @@ class BluetoothManager {
 public:
     using StatusCallback = std::function<void(ConnectionStatus, const std::wstring&)>;
     using DataReceivedCallback = std::function<void(const uint8_t*, size_t)>;
+    using PacketCallback = std::function<void(uint8_t type, const uint8_t* payload, uint8_t len)>;
 
     BluetoothManager();
     ~BluetoothManager();
@@ -53,6 +54,7 @@ public:
     // Callbacks & State
     void SetStatusCallback(StatusCallback cb) { m_statusCb = cb; }
     void SetDataCallback(DataReceivedCallback cb) { m_dataCb = cb; }
+    void SetPacketCallback(PacketCallback cb) { m_packetCb = cb; }
     ConnectionStatus GetStatus() const { return m_status; }
     std::wstring GetStatusMessage() const { return m_statusMessage; }
     std::wstring GetConnectedDeviceName() const { return m_connectedDeviceName; }
@@ -77,6 +79,7 @@ private:
 
     StatusCallback m_statusCb;
     DataReceivedCallback m_dataCb;
+    PacketCallback m_packetCb;
     std::mutex m_sendMutex;
     WSAQUERYSETW m_serviceRecord;
     bool m_serviceRegistered;
