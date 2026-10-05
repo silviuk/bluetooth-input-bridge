@@ -65,7 +65,7 @@ MainWindow::~MainWindow() {
 bool MainWindow::Create() {
     INITCOMMONCONTROLSEX icex;
     icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
-    icex.dwICC = ICC_STANDARD_CLASSES | ICC_BAR_CLASSES;
+    icex.dwICC = ICC_STANDARD_CLASSES | ICC_BAR_CLASSES | ICC_WIN95_CLASSES;
     InitCommonControlsEx(&icex);
 
     WNDCLASSEXW wc;
@@ -470,18 +470,22 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
     if (msg == WM_NCCREATE) {
         CREATESTRUCT* pCS = (CREATESTRUCT*)lParam;
         pThis = (MainWindow*)pCS->lpCreateParams;
-        SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)pThis);
+        if (pThis) {
+            pThis->m_hWnd = hWnd;
+            SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)pThis);
+        }
+        return DefWindowProcW(hWnd, msg, wParam, lParam);
     } else {
         pThis = (MainWindow*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
     }
 
     if (pThis) {
-        return pThis->HandleMessage(msg, wParam, lParam);
+        return pThis->HandleMessage(hWnd, msg, wParam, lParam);
     }
-    return DefWindowProc(hWnd, msg, wParam, lParam);
+    return DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
-LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
+LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_COMMAND: {
             int wmId = LOWORD(wParam);
@@ -601,5 +605,5 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         }
     }
 
-    return DefWindowProcW(m_hWnd, msg, wParam, lParam);
+    return DefWindowProcW(hWnd, msg, wParam, lParam);
 }

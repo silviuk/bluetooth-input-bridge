@@ -21,7 +21,7 @@ public:
     static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 private:
-    LRESULT HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
+    LRESULT HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
     // Initialization & UI creation
     void CreateControls();
