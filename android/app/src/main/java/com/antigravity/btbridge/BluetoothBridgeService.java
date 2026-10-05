@@ -39,7 +39,16 @@ public class BluetoothBridgeService extends Service {
     private CursorOverlayView mCursorOverlay;
 
     private boolean mIsConnected = false;
+    private boolean mIsServerMode = true;
     private StatusListener mStatusListener;
+
+    public boolean isServerMode() {
+        return mIsServerMode;
+    }
+
+    public void setServerMode(boolean serverMode) {
+        this.mIsServerMode = serverMode;
+    }
 
     public interface StatusListener {
         void onStatusChanged(String status, boolean isConnected);
@@ -97,14 +106,22 @@ public class BluetoothBridgeService extends Service {
         return START_STICKY;
     }
 
-    public synchronized void stopServiceInternal() {
-        if (mAcceptThread != null) {
-            mAcceptThread.cancel();
-            mAcceptThread = null;
-        }
+    public synchronized void disconnect() {
         if (mConnectedThread != null) {
             mConnectedThread.cancel();
             mConnectedThread = null;
+        }
+        mIsConnected = false;
+        notifyStatus("Disconnected", false);
+        AppLogger.i("BT-Bridge", "Disconnected from remote device");
+    }
+
+    public synchronized void stopServiceInternal() {
+        AppLogger.i("BT-Bridge", "Stopping service completely");
+        disconnect();
+        if (mAcceptThread != null) {
+            mAcceptThread.cancel();
+            mAcceptThread = null;
         }
         if (mCursorOverlay != null) {
             mCursorOverlay.hide();
@@ -127,6 +144,7 @@ public class BluetoothBridgeService extends Service {
 
     private void notifyStatus(String status, boolean connected) {
         mIsConnected = connected;
+        AppLogger.i("BT-Bridge", "Status -> " + status + " (connected=" + connected + ")");
         mMainHandler.post(() -> {
             if (mStatusListener != null) {
                 mStatusListener.onStatusChanged(status, connected);
@@ -148,21 +166,25 @@ public class BluetoothBridgeService extends Service {
         // Defensive check: verify Bluetooth permissions before opening RFCOMM socket
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                AppLogger.w("BT-Bridge", "Cannot start server: BLUETOOTH_CONNECT permission not granted");
                 notifyStatus("Waiting for Bluetooth permission...", false);
                 return;
             }
         }
 
         if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+            AppLogger.w("BT-Bridge", "Cannot start server: Bluetooth adapter disabled or null");
             notifyStatus("Bluetooth is disabled", false);
             return;
         }
 
         try {
+            AppLogger.i("BT-Bridge", "Starting RFCOMM server listening on " + Protocol.SERVICE_NAME + " (UUID: " + Protocol.SPP_UUID + ")");
             mAcceptThread = new AcceptThread();
             mAcceptThread.start();
             notifyStatus("Listening for Windows PC...", false);
         } catch (Exception e) {
+            AppLogger.e("BT-Bridge", "Failed to start RFCOMM server", e);
             notifyStatus("Bluetooth error: " + e.getMessage(), false);
         }
 
@@ -173,6 +195,11 @@ public class BluetoothBridgeService extends Service {
     }
 
     public synchronized void connectToDevice(BluetoothDevice device) {
+        if (device == null) {
+            AppLogger.w("BT-Bridge", "connectToDevice called with null device");
+            return;
+        }
+
         if (mConnectedThread != null) {
             mConnectedThread.cancel();
             mConnectedThread = null;
@@ -182,20 +209,56 @@ public class BluetoothBridgeService extends Service {
             mAcceptThread = null;
         }
 
-        new Thread(() -> {
-            String devName = "Device";
-            try {
-                devName = device.getName();
-            } catch (SecurityException ignored) {}
+        String devName = "Device";
+        String devAddr = device.getAddress();
+        try {
+            devName = device.getName();
+            if (devName == null || devName.isEmpty()) devName = devAddr;
+        } catch (SecurityException ignored) {}
 
-            notifyStatus("Connecting to " + devName + "...", false);
+        final String finalDevName = devName;
+        AppLogger.i("BT-Bridge", "Connecting to remote PC: " + finalDevName + " [" + devAddr + "]");
+        notifyStatus("Connecting to " + finalDevName + "...", false);
+
+        new Thread(() -> {
+            BluetoothSocket socket = null;
+            boolean connected = false;
+
+            // Strategy 1: Standard SPP UUID
             try {
-                BluetoothSocket socket = device.createRfcommSocketToServiceRecord(Protocol.SPP_UUID);
+                AppLogger.i("BT-Bridge", "Attempting SPP UUID connection to " + devAddr + " (UUID: " + Protocol.SPP_UUID + ")");
+                socket = device.createRfcommSocketToServiceRecord(Protocol.SPP_UUID);
                 socket.connect();
+                connected = true;
+                AppLogger.i("BT-Bridge", "Connected via standard SPP UUID successfully!");
+            } catch (Exception e1) {
+                AppLogger.w("BT-Bridge", "SPP UUID connection failed: " + e1.getMessage() + ", trying RFCOMM channel 1 fallback...");
+                try {
+                    if (socket != null) socket.close();
+                } catch (Exception ignored) {}
+
+                // Strategy 2: Direct RFCOMM Channel 1 via reflection (widely used for PC SPP)
+                try {
+                    java.lang.reflect.Method m = device.getClass().getMethod("createRfcommSocket", new Class[]{int.class});
+                    socket = (BluetoothSocket) m.invoke(device, 1);
+                    if (socket != null) {
+                        socket.connect();
+                        connected = true;
+                        AppLogger.i("BT-Bridge", "Connected via RFCOMM channel 1 fallback successfully!");
+                    }
+                } catch (Exception e2) {
+                    AppLogger.e("BT-Bridge", "Fallback channel 1 also failed: " + e2.getMessage());
+                    try {
+                        if (socket != null) socket.close();
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            if (connected && socket != null) {
                 manageConnectedSocket(socket);
-            } catch (Exception e) {
-                notifyStatus("Connection failed: " + e.getMessage(), false);
-                startServer();
+            } else {
+                AppLogger.e("BT-Bridge", "Connection failed completely to " + finalDevName);
+                notifyStatus("Connection failed to " + finalDevName, false);
             }
         }).start();
     }
@@ -204,6 +267,7 @@ public class BluetoothBridgeService extends Service {
         if (mConnectedThread != null) {
             mConnectedThread.cancel();
         }
+        AppLogger.i("BT-Bridge", "Managing active socket connection, starting ConnectedThread");
         mConnectedThread = new ConnectedThread(socket);
         mConnectedThread.start();
         notifyStatus("Connected to Windows PC", true);
@@ -216,7 +280,9 @@ public class BluetoothBridgeService extends Service {
             try {
                 mmServerSocket = mBluetoothAdapter.listenUsingRfcommWithServiceRecord(
                         Protocol.SERVICE_NAME, Protocol.SPP_UUID);
+                AppLogger.i("BT-Bridge", "BluetoothServerSocket listening on " + Protocol.SERVICE_NAME);
             } catch (Exception e) {
+                AppLogger.e("BT-Bridge", "listenUsingRfcommWithServiceRecord failed", e);
                 mmServerSocket = null;
             }
         }
@@ -230,10 +296,12 @@ public class BluetoothBridgeService extends Service {
                 try {
                     socket = mmServerSocket.accept();
                 } catch (Exception e) {
+                    AppLogger.i("BT-Bridge", "AcceptThread terminated: " + e.getMessage());
                     break;
                 }
 
                 if (socket != null) {
+                    AppLogger.i("BT-Bridge", "Accepted incoming Bluetooth client connection from " + socket.getRemoteDevice().getAddress());
                     synchronized (BluetoothBridgeService.this) {
                         manageConnectedSocket(socket);
                     }
@@ -323,7 +391,9 @@ public class BluetoothBridgeService extends Service {
 
             if (mmRunning) {
                 notifyStatus("Windows PC disconnected", false);
-                startServer();
+                if (mIsServerMode) {
+                    startServer();
+                }
             }
         }
 

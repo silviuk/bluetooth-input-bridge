@@ -18,8 +18,8 @@ echo "=== 2. Linking Resources and Generating R.java ==="
     --manifest "${BASE_DIR}/app/src/main/AndroidManifest.xml" \
     --min-sdk-version 26 \
     --target-sdk-version 34 \
-    --version-code 2 \
-    --version-name "0.2.0" \
+    --version-code 4 \
+    --version-name "0.3.0" \
     --java "${BUILD_DIR}/gen" \
     -o "${BUILD_DIR}/unaligned.apk" \
     "${BUILD_DIR}/compiled_res.zip"

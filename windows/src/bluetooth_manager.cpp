@@ -1,5 +1,6 @@
 #include "bluetooth_manager.h"
 #include "protocol.h"
+#include "logger.h"
 #include <sstream>
 #include <iomanip>
 #include <iostream>
@@ -17,6 +18,19 @@ std::wstring FormatBthAddress(BTH_ADDR address) {
         if (i > 0) ss << L":";
     }
     return ss.str();
+}
+
+std::wstring FormatWsaError(int err) {
+    switch (err) {
+        case 10049: return L"WSAEADDRNOTAVAIL (Cannot assign requested address)";
+        case 10050: return L"WSAENETDOWN (Network is down)";
+        case 10051: return L"WSAENETUNREACH (Network unreachable)";
+        case 10054: return L"WSAECONNRESET (Connection reset by peer)";
+        case 10060: return L"WSAETIMEDOUT (Connection timed out - phone unreachable)";
+        case 10061: return L"WSAECONNREFUSED (Connection refused - app not listening on phone)";
+        case 10065: return L"WSAEHOSTUNREACH (No route to host)";
+        default:    return L"Error " + std::to_wstring(err);
+    }
 }
 
 BluetoothManager::BluetoothManager()
@@ -39,9 +53,11 @@ bool BluetoothManager::Initialize() {
     WSADATA wsaData;
     int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (err != 0) {
+        LOG_ERROR(L"Bluetooth", L"WSAStartup failed with error " + std::to_wstring(err));
         SetStatus(ConnectionStatus::Error, L"WSAStartup failed");
         return false;
     }
+    LOG_INFO(L"Bluetooth", L"Winsock 2.2 Bluetooth subsystem initialized");
     return true;
 }
 
@@ -60,6 +76,7 @@ void BluetoothManager::SetStatus(ConnectionStatus status, const std::wstring& ms
 
 std::vector<BluetoothDeviceInfo> BluetoothManager::GetPairedDevices() {
     std::vector<BluetoothDeviceInfo> devices;
+    LOG_INFO(L"Bluetooth", L"Querying paired Bluetooth devices...");
 
     BLUETOOTH_DEVICE_SEARCH_PARAMS searchParams;
     ZeroMemory(&searchParams, sizeof(searchParams));
@@ -68,7 +85,7 @@ std::vector<BluetoothDeviceInfo> BluetoothManager::GetPairedDevices() {
     searchParams.fReturnRemembered     = TRUE;
     searchParams.fReturnUnknown        = FALSE;
     searchParams.fReturnConnected      = TRUE;
-    searchParams.fIssueInquiry         = FALSE; // Fast, don't wait for active inquiry
+    searchParams.fIssueInquiry         = FALSE; // Fast cached query
     searchParams.cTimeoutMultiplier    = 2;
     searchParams.hRadio                = NULL;
 
@@ -86,8 +103,15 @@ std::vector<BluetoothDeviceInfo> BluetoothManager::GetPairedDevices() {
             info.isConnected = deviceInfo.fConnected ? true : false;
             info.isRemembered = deviceInfo.fRemembered ? true : false;
             devices.push_back(info);
+            LOG_INFO(L"Bluetooth", L"Found paired device: " + info.name + L" [" + info.addressStr + L"]");
         } while (BluetoothFindNextDevice(hFind, &deviceInfo));
         BluetoothFindDeviceClose(hFind);
+    }
+
+    if (devices.empty()) {
+        LOG_WARN(L"Bluetooth", L"No paired Bluetooth devices discovered in Windows Settings.");
+    } else {
+        LOG_INFO(L"Bluetooth", L"Found total " + std::to_wstring(devices.size()) + L" paired device(s)");
     }
 
     return devices;
@@ -96,8 +120,11 @@ std::vector<BluetoothDeviceInfo> BluetoothManager::GetPairedDevices() {
 bool BluetoothManager::StartServer(ULONG port) {
     Disconnect();
 
+    LOG_INFO(L"Bluetooth", L"Creating RFCOMM server socket...");
     m_serverSocket = socket(AF_BTH, SOCK_STREAM, BTHPROTO_RFCOMM);
     if (m_serverSocket == INVALID_SOCKET) {
+        int err = WSAGetLastError();
+        LOG_ERROR(L"Bluetooth", L"Failed to create RFCOMM socket: " + FormatWsaError(err));
         SetStatus(ConnectionStatus::Error, L"Failed to create RFCOMM socket");
         return false;
     }
@@ -106,9 +133,11 @@ bool BluetoothManager::StartServer(ULONG port) {
     ZeroMemory(&sa, sizeof(sa));
     sa.addressFamily = AF_BTH;
     sa.btAddr = 0; // Local radio
-    sa.port = port;
+    sa.port = (port == 0) ? BT_PORT_ANY : port;
 
     if (bind(m_serverSocket, (SOCKADDR*)&sa, sizeof(sa)) == SOCKET_ERROR) {
+        int err = WSAGetLastError();
+        LOG_ERROR(L"Bluetooth", L"Failed to bind RFCOMM socket: " + FormatWsaError(err));
         closesocket(m_serverSocket);
         m_serverSocket = INVALID_SOCKET;
         SetStatus(ConnectionStatus::Error, L"Failed to bind socket");
@@ -118,13 +147,19 @@ bool BluetoothManager::StartServer(ULONG port) {
     // Determine allocated port/channel
     int saLen = sizeof(sa);
     if (getsockname(m_serverSocket, (SOCKADDR*)&sa, &saLen) == SOCKET_ERROR) {
+        int err = WSAGetLastError();
+        LOG_ERROR(L"Bluetooth", L"getsockname failed: " + FormatWsaError(err));
         closesocket(m_serverSocket);
         m_serverSocket = INVALID_SOCKET;
         SetStatus(ConnectionStatus::Error, L"Failed to get socket name");
         return false;
     }
 
+    LOG_INFO(L"Bluetooth", L"RFCOMM server bound to channel/port " + std::to_wstring(sa.port));
+
     if (listen(m_serverSocket, 1) == SOCKET_ERROR) {
+        int err = WSAGetLastError();
+        LOG_ERROR(L"Bluetooth", L"listen failed: " + FormatWsaError(err));
         closesocket(m_serverSocket);
         m_serverSocket = INVALID_SOCKET;
         SetStatus(ConnectionStatus::Error, L"Failed to listen on socket");
@@ -149,13 +184,16 @@ bool BluetoothManager::StartServer(ULONG port) {
     m_serviceRecord.lpcsaBuffer = &csAddr;
 
     if (WSASetServiceW(&m_serviceRecord, RNRSERVICE_REGISTER, 0) == SOCKET_ERROR) {
-        // Warning only: some stacks don't strictly require explicit SDP if RFCOMM port is known
+        int err = WSAGetLastError();
+        LOG_WARN(L"Bluetooth", L"WSASetService SDP registration warning (err " + std::to_wstring(err) + L")");
     } else {
         m_serviceRegistered = true;
+        LOG_INFO(L"Bluetooth", L"SDP service record 'Lapdroid_Bridge' published successfully");
     }
 
     m_running = true;
     SetStatus(ConnectionStatus::Listening, L"Waiting for Android phone to connect...");
+    LOG_INFO(L"Bluetooth", L"Server is active and waiting for Android phone connection...");
 
     m_serverThread = std::thread(&BluetoothManager::ServerThreadProc, this);
     return true;
@@ -169,6 +207,7 @@ void BluetoothManager::ServerThreadProc() {
     SOCKET clientSock = accept(m_serverSocket, (SOCKADDR*)&clientAddr, &addrLen);
     if (clientSock == INVALID_SOCKET) {
         if (m_running) {
+            LOG_INFO(L"Bluetooth", L"Server accept thread stopped");
             SetStatus(ConnectionStatus::Disconnected, L"Server stopped");
         }
         return;
@@ -177,6 +216,7 @@ void BluetoothManager::ServerThreadProc() {
     m_clientSocket = clientSock;
     m_connectedDeviceName = FormatBthAddress(clientAddr.btAddr);
 
+    LOG_INFO(L"Bluetooth", L"Incoming client connection accepted from " + m_connectedDeviceName);
     std::wstring msg = L"Connected to " + m_connectedDeviceName;
     SetStatus(ConnectionStatus::Connected, msg);
 
@@ -184,41 +224,98 @@ void BluetoothManager::ServerThreadProc() {
     m_receiveThread = std::thread(&BluetoothManager::ReceiveThreadProc, this);
 }
 
-bool BluetoothManager::ConnectToDevice(BTH_ADDR address, ULONG port) {
+bool BluetoothManager::ConnectToDevice(BTH_ADDR address) {
     Disconnect();
 
-    m_clientSocket = socket(AF_BTH, SOCK_STREAM, BTHPROTO_RFCOMM);
-    if (m_clientSocket == INVALID_SOCKET) {
-        SetStatus(ConnectionStatus::Error, L"Failed to create RFCOMM socket");
-        return false;
-    }
-
-    SOCKADDR_BTH sa;
-    ZeroMemory(&sa, sizeof(sa));
-    sa.addressFamily = AF_BTH;
-    sa.btAddr = address;
-    sa.serviceClassId = BT_SerialPortServiceClass_UUID;
-    sa.port = port; // RFCOMM channel
-
-    SetStatus(ConnectionStatus::Connecting, L"Connecting to device " + FormatBthAddress(address) + L"...");
-
-    if (connect(m_clientSocket, (SOCKADDR*)&sa, sizeof(sa)) == SOCKET_ERROR) {
-        closesocket(m_clientSocket);
-        m_clientSocket = INVALID_SOCKET;
-        SetStatus(ConnectionStatus::Error, L"Connection failed (check phone is in bridge mode)");
-        return false;
-    }
-
-    m_connectedDeviceName = FormatBthAddress(address);
     m_running = true;
-    SetStatus(ConnectionStatus::Connected, L"Connected to " + m_connectedDeviceName);
+    SetStatus(ConnectionStatus::Connecting, L"Connecting to " + FormatBthAddress(address) + L"...");
+    LOG_INFO(L"Bluetooth", L"Launching asynchronous connection thread to " + FormatBthAddress(address) + L"...");
 
-    m_receiveThread = std::thread(&BluetoothManager::ReceiveThreadProc, this);
+    if (m_connectThread.joinable()) {
+        m_connectThread.join();
+    }
+    m_connectThread = std::thread(&BluetoothManager::ConnectThreadProc, this, address);
     return true;
+}
+
+void BluetoothManager::ConnectThreadProc(BTH_ADDR address) {
+    std::wstring addrStr = FormatBthAddress(address);
+    LOG_INFO(L"Bluetooth", L"[ConnectThread] Target device: " + addrStr);
+
+    SOCKET sock = INVALID_SOCKET;
+    bool connected = false;
+
+    // Strategy 1: Connect via SDP SPP UUID (port = 0 / BT_PORT_ANY)
+    LOG_INFO(L"Bluetooth", L"[ConnectThread] Strategy 1: Attempting SDP SPP UUID resolution...");
+    sock = socket(AF_BTH, SOCK_STREAM, BTHPROTO_RFCOMM);
+    if (sock != INVALID_SOCKET) {
+        SOCKADDR_BTH sa;
+        ZeroMemory(&sa, sizeof(sa));
+        sa.addressFamily = AF_BTH;
+        sa.btAddr = address;
+        sa.serviceClassId = BT_SerialPortServiceClass_UUID;
+        sa.port = 0; // Trigger Winsock SDP lookup
+
+        if (connect(sock, (SOCKADDR*)&sa, sizeof(sa)) == 0) {
+            connected = true;
+            LOG_INFO(L"Bluetooth", L"[ConnectThread] Successfully connected via SDP SPP UUID!");
+        } else {
+            int err = WSAGetLastError();
+            LOG_WARN(L"Bluetooth", L"[ConnectThread] SDP connect failed: " + FormatWsaError(err));
+            closesocket(sock);
+            sock = INVALID_SOCKET;
+        }
+    }
+
+    // Strategy 2: Direct RFCOMM Channel fallback (channels 1 through 4)
+    if (!connected && m_running) {
+        LOG_INFO(L"Bluetooth", L"[ConnectThread] Strategy 2: Attempting direct RFCOMM channels (1-4)...");
+        for (ULONG ch = 1; ch <= 4 && m_running && !connected; ++ch) {
+            sock = socket(AF_BTH, SOCK_STREAM, BTHPROTO_RFCOMM);
+            if (sock == INVALID_SOCKET) break;
+
+            SOCKADDR_BTH sa;
+            ZeroMemory(&sa, sizeof(sa));
+            sa.addressFamily = AF_BTH;
+            sa.btAddr = address;
+            sa.port = ch;
+
+            LOG_INFO(L"Bluetooth", L"[ConnectThread] Trying direct RFCOMM channel " + std::to_wstring(ch) + L"...");
+            if (connect(sock, (SOCKADDR*)&sa, sizeof(sa)) == 0) {
+                connected = true;
+                LOG_INFO(L"Bluetooth", L"[ConnectThread] Connected on direct RFCOMM channel " + std::to_wstring(ch) + L"!");
+                break;
+            } else {
+                int err = WSAGetLastError();
+                LOG_DEBUG(L"Bluetooth", L"[ConnectThread] Channel " + std::to_wstring(ch) + L" failed: " + FormatWsaError(err));
+                closesocket(sock);
+                sock = INVALID_SOCKET;
+            }
+        }
+    }
+
+    if (!m_running) {
+        if (sock != INVALID_SOCKET) closesocket(sock);
+        LOG_INFO(L"Bluetooth", L"[ConnectThread] Connection cancelled by user");
+        return;
+    }
+
+    if (connected && sock != INVALID_SOCKET) {
+        m_clientSocket = sock;
+        m_connectedDeviceName = addrStr;
+        SetStatus(ConnectionStatus::Connected, L"Connected to " + m_connectedDeviceName);
+        LOG_INFO(L"Bluetooth", L"Link established with Android phone. Ready for input capture (F12).");
+        m_receiveThread = std::thread(&BluetoothManager::ReceiveThreadProc, this);
+    } else {
+        LOG_ERROR(L"Bluetooth", L"Connection failed. Please ensure Lapdroid is running on Android in Server Mode or paired properly.");
+        SetStatus(ConnectionStatus::Error, L"Connection failed (check Android app)");
+    }
 }
 
 void BluetoothManager::ReceiveThreadProc() {
     uint8_t buffer[512];
+    LOG_INFO(L"Bluetooth", L"Receive thread started");
+
     while (m_running && m_clientSocket != INVALID_SOCKET) {
         int bytesRead = recv(m_clientSocket, (char*)buffer, sizeof(buffer), 0);
         if (bytesRead > 0) {
@@ -226,6 +323,7 @@ void BluetoothManager::ReceiveThreadProc() {
                 m_dataCb(buffer, (size_t)bytesRead);
             }
         } else if (bytesRead == 0 || bytesRead == SOCKET_ERROR) {
+            LOG_INFO(L"Bluetooth", L"Connection closed by remote device or lost");
             break;
         }
     }
@@ -241,6 +339,7 @@ void BluetoothManager::Disconnect() {
     if (m_serviceRegistered) {
         WSASetServiceW(&m_serviceRecord, RNRSERVICE_DELETE, 0);
         m_serviceRegistered = false;
+        LOG_INFO(L"Bluetooth", L"SDP service record unregistered");
     }
 
     if (m_clientSocket != INVALID_SOCKET) {
@@ -254,6 +353,9 @@ void BluetoothManager::Disconnect() {
         m_serverSocket = INVALID_SOCKET;
     }
 
+    if (m_connectThread.joinable()) {
+        m_connectThread.join();
+    }
     if (m_serverThread.joinable()) {
         m_serverThread.join();
     }
@@ -262,6 +364,7 @@ void BluetoothManager::Disconnect() {
     }
 
     SetStatus(ConnectionStatus::Disconnected, L"Disconnected");
+    LOG_INFO(L"Bluetooth", L"BluetoothManager disconnected and cleaned up");
 }
 
 bool BluetoothManager::SendPacket(uint8_t type, const void* payload, uint8_t length) {

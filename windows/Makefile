@@ -9,7 +9,7 @@ BIN_DIR = ../bin
 TARGET = $(BIN_DIR)/Lapdroid.exe
 SETUP = $(BIN_DIR)/Lapdroid-Setup.exe
 
-SRCS = src/main.cpp src/bluetooth_manager.cpp src/input_capture.cpp src/ui_window.cpp
+SRCS = src/main.cpp src/bluetooth_manager.cpp src/input_capture.cpp src/ui_window.cpp src/logger.cpp
 RES = src/resources.rc
 RES_OBJ = src/resources.o
 

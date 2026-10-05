@@ -3,6 +3,10 @@ package com.antigravity.btbridge;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -14,33 +18,72 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
-public class MainActivity extends Activity implements BluetoothBridgeService.StatusListener {
+public class MainActivity extends Activity implements BluetoothBridgeService.StatusListener, AppLogger.LogListener {
     private static final int REQUEST_PERMS = 101;
     private static final int REQUEST_OVERLAY_PERM = 102;
 
+    // Tabs
+    private Button mBtnTabControls;
+    private Button mBtnTabLogs;
+    private ScrollView mScrollControlsTab;
+    private LinearLayout mLayoutLogsTab;
+
+    // Status & Mode
     private TextView mTvStatus;
+    private RadioGroup mRgMode;
+    private RadioButton mRbModeServer;
+    private RadioButton mRbModeClient;
+    private LinearLayout mLayoutServerControls;
+    private LinearLayout mLayoutClientControls;
+
+    // Server Controls
+    private Button mBtnStartServer;
+    private Button mBtnRestartServer;
+    private Button mBtnStopServer;
+
+    // Client Controls
+    private Spinner mSpPairedDevices;
+    private Button mBtnRefreshDevices;
+    private Button mBtnConnectClient;
+    private final List<BluetoothDevice> mPairedDeviceList = new ArrayList<>();
+    private ArrayAdapter<String> mDeviceAdapter;
+
+    // Permissions
     private TextView mTvPermBt;
     private TextView mTvPermOverlay;
     private TextView mTvPermAccess;
     private Button mBtnGrantBt;
     private Button mBtnGrantOverlay;
     private Button mBtnGrantAccess;
-    private Button mBtnStartServer;
-    private Button mBtnRestartServer;
-    private Button mBtnStopServer;
     private EditText mEtTestInput;
 
+    // Logs
+    private TextView mTvLogContent;
+    private TextView mTvLogCount;
+    private Button mBtnCopyLogs;
+    private Button mBtnClearLogs;
+    private ScrollView mScrollLogs;
+
+    // Service binding
     private BluetoothBridgeService mService;
     private boolean mBound = false;
     private boolean mHasAutoRequested = false;
+    private boolean mIsConnected = false;
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         @Override
@@ -49,12 +92,14 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
             mService = binder.getService();
             mBound = true;
             mService.setStatusListener(MainActivity.this);
+            AppLogger.i("MainActivity", "Connected to BluetoothBridgeService");
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             mBound = false;
             mService = null;
+            AppLogger.w("MainActivity", "Disconnected from BluetoothBridgeService");
         }
     };
 
@@ -63,23 +108,90 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mTvStatus = findViewById(R.id.tv_connection_status);
-        mTvPermBt = findViewById(R.id.tv_perm_bt);
-        mTvPermOverlay = findViewById(R.id.tv_perm_overlay);
-        mTvPermAccess = findViewById(R.id.tv_perm_access);
+        // Bind views
+        mBtnTabControls = findViewById(R.id.btn_tab_controls);
+        mBtnTabLogs = findViewById(R.id.btn_tab_logs);
+        mScrollControlsTab = findViewById(R.id.scroll_controls_tab);
+        mLayoutLogsTab = findViewById(R.id.layout_logs_tab);
 
-        mBtnGrantBt = findViewById(R.id.btn_grant_bt);
-        mBtnGrantOverlay = findViewById(R.id.btn_grant_overlay);
-        mBtnGrantAccess = findViewById(R.id.btn_grant_access);
+        mTvStatus = findViewById(R.id.tv_connection_status);
+        mRgMode = findViewById(R.id.rg_connection_mode);
+        mRbModeServer = findViewById(R.id.rb_mode_server);
+        mRbModeClient = findViewById(R.id.rb_mode_client);
+        mLayoutServerControls = findViewById(R.id.layout_server_controls);
+        mLayoutClientControls = findViewById(R.id.layout_client_controls);
+
         mBtnStartServer = findViewById(R.id.btn_start_server);
         mBtnRestartServer = findViewById(R.id.btn_restart_server);
         mBtnStopServer = findViewById(R.id.btn_stop_server);
+
+        mSpPairedDevices = findViewById(R.id.sp_paired_devices);
+        mBtnRefreshDevices = findViewById(R.id.btn_refresh_devices);
+        mBtnConnectClient = findViewById(R.id.btn_connect_client);
+
+        mTvPermBt = findViewById(R.id.tv_perm_bt);
+        mTvPermOverlay = findViewById(R.id.tv_perm_overlay);
+        mTvPermAccess = findViewById(R.id.tv_perm_access);
+        mBtnGrantBt = findViewById(R.id.btn_grant_bt);
+        mBtnGrantOverlay = findViewById(R.id.btn_grant_overlay);
+        mBtnGrantAccess = findViewById(R.id.btn_grant_access);
         mEtTestInput = findViewById(R.id.et_test_input);
 
-        mBtnGrantBt.setOnClickListener(v -> requestMissingRuntimePermissions());
-        mBtnGrantOverlay.setOnClickListener(v -> requestOverlayPermission());
-        mBtnGrantAccess.setOnClickListener(v -> checkAndPromptAccessibility());
+        mTvLogContent = findViewById(R.id.tv_log_content);
+        mTvLogCount = findViewById(R.id.tv_log_count);
+        mBtnCopyLogs = findViewById(R.id.btn_copy_logs);
+        mBtnClearLogs = findViewById(R.id.btn_clear_logs);
+        mScrollLogs = findViewById(R.id.scroll_logs);
 
+        // Tab switcher
+        mBtnTabControls.setOnClickListener(v -> switchTab(true));
+        mBtnTabLogs.setOnClickListener(v -> switchTab(false));
+
+        // Mode switcher
+        mRgMode.setOnCheckedChangeListener((group, checkedId) -> {
+            boolean isServer = (checkedId == R.id.rb_mode_server);
+            mLayoutServerControls.setVisibility(isServer ? View.VISIBLE : View.GONE);
+            mLayoutClientControls.setVisibility(isServer ? View.GONE : View.VISIBLE);
+            if (mService != null) {
+                mService.setServerMode(isServer);
+            }
+            if (!isServer) {
+                refreshPairedDevices();
+            }
+            AppLogger.i("MainActivity", "Mode switched to: " + (isServer ? "Server (Listening)" : "Client (Connect)"));
+        });
+
+        // Device adapter for client mode
+        mDeviceAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item);
+        mSpPairedDevices.setAdapter(mDeviceAdapter);
+        mBtnRefreshDevices.setOnClickListener(v -> refreshPairedDevices());
+
+        // Client Connect / Disconnect button
+        mBtnConnectClient.setOnClickListener(v -> {
+            if (mIsConnected) {
+                if (mBound && mService != null) {
+                    mService.disconnect();
+                }
+            } else {
+                int pos = mSpPairedDevices.getSelectedItemPosition();
+                if (pos >= 0 && pos < mPairedDeviceList.size()) {
+                    BluetoothDevice targetDev = mPairedDeviceList.get(pos);
+                    if (mBound && mService != null) {
+                        mService.connectToDevice(targetDev);
+                    } else if (hasBluetoothPermissions()) {
+                        startBridgeServiceSafe();
+                    } else {
+                        Toast.makeText(this, "Please grant Bluetooth permission first", Toast.LENGTH_SHORT).show();
+                        requestMissingRuntimePermissions();
+                    }
+                } else {
+                    Toast.makeText(this, "No paired device selected. Pair your PC in Android Bluetooth Settings first.", Toast.LENGTH_LONG).show();
+                    refreshPairedDevices();
+                }
+            }
+        });
+
+        // Server action buttons
         mBtnStartServer.setOnClickListener(v -> {
             if (mBound && mService != null) {
                 mService.startServer();
@@ -106,7 +218,7 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         mBtnStopServer.setOnClickListener(v -> {
             if (mBound && mService != null) {
                 mService.stopServiceInternal();
-                Toast.makeText(this, "Bluetooth listener stopped", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Bluetooth service stopped", Toast.LENGTH_SHORT).show();
             } else {
                 Intent stopIntent = new Intent(this, BluetoothBridgeService.class);
                 stopIntent.setAction(BluetoothBridgeService.ACTION_STOP);
@@ -114,16 +226,100 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
             }
         });
 
-        // First-run automatic permission prompt
+        // Permission buttons
+        mBtnGrantBt.setOnClickListener(v -> requestMissingRuntimePermissions());
+        mBtnGrantOverlay.setOnClickListener(v -> requestOverlayPermission());
+        mBtnGrantAccess.setOnClickListener(v -> checkAndPromptAccessibility());
+
+        // Logs buttons
+        mBtnCopyLogs.setOnClickListener(v -> {
+            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm != null) {
+                ClipData clip = ClipData.newPlainText("Lapdroid Logs", AppLogger.getAllLogs());
+                cm.setPrimaryClip(clip);
+                Toast.makeText(this, "Logs copied to clipboard", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        mBtnClearLogs.setOnClickListener(v -> {
+            AppLogger.clearLogs();
+            Toast.makeText(this, "Logs cleared", Toast.LENGTH_SHORT).show();
+        });
+
+        // Register logger listener
+        AppLogger.addListener(this);
+        mTvLogContent.setText(AppLogger.getAllLogs());
+
+        AppLogger.i("MainActivity", "Lapdroid Android v0.3.0 initialized");
+
+        // Initial permissions and service start
         if (!hasBluetoothPermissions()) {
             mHasAutoRequested = true;
             mTvStatus.setText("Waiting for permissions...");
-            mTvStatus.setTextColor(0xFFE0AF68); // Amber warning
+            mTvStatus.setTextColor(0xFFE0AF68);
             requestMissingRuntimePermissions();
         } else {
-            // Permissions already granted, start service safely
             startBridgeServiceSafe();
+            refreshPairedDevices();
         }
+    }
+
+    private void switchTab(boolean showControls) {
+        mScrollControlsTab.setVisibility(showControls ? View.VISIBLE : View.GONE);
+        mLayoutLogsTab.setVisibility(showControls ? View.GONE : View.VISIBLE);
+
+        if (showControls) {
+            mBtnTabControls.setBackgroundTintList(getColorStateList(R.color.primary));
+            mBtnTabControls.setTextColor(0xFFFFFFFF);
+            mBtnTabLogs.setBackgroundTintList(getColorStateList(R.color.card_bg));
+            mBtnTabLogs.setTextColor(getColor(R.color.text_secondary));
+        } else {
+            mBtnTabLogs.setBackgroundTintList(getColorStateList(R.color.primary));
+            mBtnTabLogs.setTextColor(0xFFFFFFFF);
+            mBtnTabControls.setBackgroundTintList(getColorStateList(R.color.card_bg));
+            mBtnTabControls.setTextColor(getColor(R.color.text_secondary));
+            // Scroll logs to bottom
+            mScrollLogs.post(() -> mScrollLogs.fullScroll(View.FOCUS_DOWN));
+        }
+    }
+
+    private void refreshPairedDevices() {
+        if (!hasBluetoothPermissions()) {
+            AppLogger.w("MainActivity", "Cannot refresh devices: Bluetooth permission missing");
+            return;
+        }
+
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        if (adapter == null || !adapter.isEnabled()) {
+            AppLogger.w("MainActivity", "Bluetooth adapter disabled or unavailable");
+            mDeviceAdapter.clear();
+            mDeviceAdapter.add("Bluetooth is turned OFF");
+            mDeviceAdapter.notifyDataSetChanged();
+            return;
+        }
+
+        mPairedDeviceList.clear();
+        mDeviceAdapter.clear();
+
+        try {
+            Set<BluetoothDevice> bonded = adapter.getBondedDevices();
+            if (bonded != null && !bonded.isEmpty()) {
+                for (BluetoothDevice dev : bonded) {
+                    String name = dev.getName();
+                    if (name == null || name.isEmpty()) name = "Unknown Device";
+                    mPairedDeviceList.add(dev);
+                    mDeviceAdapter.add(name + " (" + dev.getAddress() + ")");
+                }
+                AppLogger.i("MainActivity", "Found " + bonded.size() + " paired Bluetooth device(s)");
+            } else {
+                mDeviceAdapter.add("No paired devices found");
+                AppLogger.i("MainActivity", "No paired Bluetooth devices found");
+            }
+        } catch (SecurityException e) {
+            AppLogger.e("MainActivity", "SecurityException querying paired devices: " + e.getMessage());
+            mDeviceAdapter.add("Permission denied to query devices");
+        }
+        mDeviceAdapter.notifyDataSetChanged();
     }
 
     @Override
@@ -131,23 +327,20 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         super.onResume();
         updatePermissionStatuses();
 
-        // If Bluetooth permission was granted and service not yet started, start it
-        if (hasBluetoothPermissions() && !mBound) {
-            startBridgeServiceSafe();
+        if (hasBluetoothPermissions()) {
+            if (!mBound) {
+                startBridgeServiceSafe();
+            }
+            refreshPairedDevices();
         }
 
         if (mBound && mService != null) {
             mService.setStatusListener(this);
-            if (hasOverlayPermission()) {
-                mService.startServer();
-            }
         }
     }
 
     private void startBridgeServiceSafe() {
-        if (!hasBluetoothPermissions()) {
-            return; // Prevent crash when permissions not granted
-        }
+        if (!hasBluetoothPermissions()) return;
 
         try {
             Intent intent = new Intent(this, BluetoothBridgeService.class);
@@ -157,35 +350,28 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
                 startService(intent);
             }
             bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+            AppLogger.i("MainActivity", "startBridgeServiceSafe: Service initiated and bind requested");
         } catch (Exception e) {
-            e.printStackTrace();
+            AppLogger.e("MainActivity", "startBridgeServiceSafe failed", e);
             mTvStatus.setText("Service startup waiting for permissions");
         }
     }
 
     private void updatePermissionStatuses() {
-        // Bluetooth
         boolean btOk = hasBluetoothPermissions();
         mTvPermBt.setText(btOk ? "Permission Granted" : "Required for RFCOMM connection");
         mBtnGrantBt.setEnabled(!btOk);
         mBtnGrantBt.setText(btOk ? "Active" : "Grant");
 
-        // Overlay
         boolean overlayOk = hasOverlayPermission();
         mTvPermOverlay.setText(overlayOk ? "Permission Granted" : "Draws mouse cursor on screen");
         mBtnGrantOverlay.setEnabled(!overlayOk);
         mBtnGrantOverlay.setText(overlayOk ? "Active" : "Grant");
 
-        // Accessibility
         boolean accessOk = (InputAccessibilityService.getInstance() != null);
         mTvPermAccess.setText(accessOk ? "Service Active" : "Injects taps, clicks, and keystrokes");
         mBtnGrantAccess.setEnabled(!accessOk);
         mBtnGrantAccess.setText(accessOk ? "Active" : "Enable");
-
-        // Guide dialog if overlay is missing after Bluetooth is granted
-        if (btOk && !overlayOk && !mHasAutoRequested) {
-            // Prompt user about overlay
-        }
     }
 
     private boolean hasBluetoothPermissions() {
@@ -216,7 +402,6 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         if (!perms.isEmpty()) {
             requestPermissions(perms.toArray(new String[0]), REQUEST_PERMS);
         } else {
-            // Check overlay next
             checkAndPromptOverlay();
         }
     }
@@ -237,6 +422,7 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
 
             if (allGranted || hasBluetoothPermissions()) {
                 startBridgeServiceSafe();
+                refreshPairedDevices();
                 checkAndPromptOverlay();
             } else {
                 Toast.makeText(this, "Bluetooth permission is required for Lapdroid", Toast.LENGTH_LONG).show();
@@ -306,8 +492,18 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
 
     @Override
     public void onStatusChanged(String status, boolean isConnected) {
+        mIsConnected = isConnected;
         mTvStatus.setText(status);
         mTvStatus.setTextColor(isConnected ? 0xFF9ECE6A : 0xFF7AA2F7);
+
+        // Update Client Mode Connect button text
+        if (isConnected) {
+            mBtnConnectClient.setText("Disconnect");
+            mBtnConnectClient.setBackgroundTintList(getColorStateList(R.color.status_red));
+        } else {
+            mBtnConnectClient.setText("Connect to PC");
+            mBtnConnectClient.setBackgroundTintList(getColorStateList(R.color.status_green));
+        }
     }
 
     @Override
@@ -317,8 +513,27 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         }
     }
 
+    // AppLogger.LogListener
+    @Override
+    public void onLogAdded(String formattedLine) {
+        if (mTvLogContent != null) {
+            mTvLogContent.append(formattedLine + "\n");
+            if (mScrollLogs != null && mLayoutLogsTab.getVisibility() == View.VISIBLE) {
+                mScrollLogs.post(() -> mScrollLogs.fullScroll(View.FOCUS_DOWN));
+            }
+        }
+    }
+
+    @Override
+    public void onLogsCleared() {
+        if (mTvLogContent != null) {
+            mTvLogContent.setText("");
+        }
+    }
+
     @Override
     protected void onDestroy() {
+        AppLogger.removeListener(this);
         if (mBound) {
             try {
                 unbindService(mConnection);

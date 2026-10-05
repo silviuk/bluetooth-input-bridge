@@ -36,7 +36,12 @@
 #define IDC_BTN_ACT_LOCK        317
 #define IDC_LABEL_RADIO_SERVER  318
 #define IDC_LABEL_RADIO_CLIENT  319
+#define IDC_TAB_MAIN            320
+#define IDC_EDIT_LOGS           321
+#define IDC_BTN_COPY_LOGS       322
+#define IDC_BTN_CLEAR_LOGS      323
 
 #define WM_TRAYNOTIFY           (WM_APP + 10)
+#define WM_APP_LOG_MESSAGE      (WM_APP + 30)
 
 #endif // RESOURCE_H

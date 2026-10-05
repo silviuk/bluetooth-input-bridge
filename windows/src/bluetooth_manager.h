@@ -43,7 +43,7 @@ public:
 
     // Connection modes
     bool StartServer(ULONG port = BT_PORT_ANY);
-    bool ConnectToDevice(BTH_ADDR address, ULONG port = 1);
+    bool ConnectToDevice(BTH_ADDR address);
     void Disconnect();
 
     // Data transmission
@@ -61,6 +61,7 @@ public:
 private:
     void SetStatus(ConnectionStatus status, const std::wstring& msg);
     void ServerThreadProc();
+    void ConnectThreadProc(BTH_ADDR address);
     void ReceiveThreadProc();
 
     SOCKET m_serverSocket;
@@ -70,6 +71,7 @@ private:
     std::wstring m_connectedDeviceName;
 
     std::thread m_serverThread;
+    std::thread m_connectThread;
     std::thread m_receiveThread;
     std::atomic<bool> m_running;
 
@@ -81,5 +83,6 @@ private:
 };
 
 std::wstring FormatBthAddress(BTH_ADDR address);
+std::wstring FormatWsaError(int err);
 
 #endif // BLUETOOTH_MANAGER_H

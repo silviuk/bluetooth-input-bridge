@@ -51,6 +51,12 @@ private:
     void ShowTrayMenu();
     void ShowTrayNotification(const std::wstring& title, const std::wstring& msg);
 
+    // Tab & Log management
+    void SwitchTab(int tabIndex);
+    void OnCopyLogs();
+    void OnClearLogs();
+    void UpdateLogView();
+
     // Command handlers
     void OnConnectButtonClicked();
     void OnToggleCaptureClicked();
@@ -64,7 +70,12 @@ private:
     BluetoothManager* m_btManager;
     InputCapture* m_inputCapture;
 
-    // Controls
+    // Tabs
+    HWND m_hTabMain;
+    std::vector<HWND> m_controlsTabHwnds;
+    std::vector<HWND> m_logsTabHwnds;
+
+    // Controls tab elements
     HWND m_hRadioServer;
     HWND m_hRadioClient;
     HWND m_hLabelRadioServer;
@@ -87,14 +98,21 @@ private:
     HWND m_hBtnVolDown;
     HWND m_hBtnLock;
 
+    // Logs tab elements
+    HWND m_hEditLogs;
+    HWND m_hBtnCopyLogs;
+    HWND m_hBtnClearLogs;
+
     // Fonts & Graphics
     HFONT m_hFontTitle;
     HFONT m_hFontNormal;
     HFONT m_hFontBold;
     HFONT m_hFontStatus;
+    HFONT m_hFontLog;
     HBRUSH m_hBgBrush;
     HBRUSH m_hCardBrush;
     HBRUSH m_hInputBrush;
+    HBRUSH m_hLogBgBrush;
     HICON m_hAppIcon;
     HICON m_hTrayIcon;
 
