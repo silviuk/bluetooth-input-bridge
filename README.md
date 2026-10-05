@@ -1,6 +1,6 @@
 # Lapdroid (Laptop to Android Bluetooth Input Bridge)
 
-Control your **Android phone** (including Samsung Galaxy S24 Ultra) using your Windows laptop or PC keyboard and touchpad over **Bluetooth**.
+Control your **Android phone** using your Windows laptop or PC keyboard and touchpad over **Bluetooth**.
 
 > **Offline Bluetooth Only**: Operates strictly over **Bluetooth RFCOMM**. No Wi-Fi, internet, or local area network connection is used or required.
 
@@ -17,7 +17,7 @@ Under Windows 10/11, the native Windows Bluetooth driver stack (`BthModem.sys` /
 
 ```
 +------------------------------------+               +--------------------------------------+
-|       Windows PC (Native Win32)     |               |    Android Phone / Galaxy S24 Ultra  |
+|       Windows PC (Native Win32)     |               |             Android Phone            |
 |                                    |               |                                      |
 |  - WH_KEYBOARD_LL / WH_MOUSE_LL    |               |  - Lapdroid BluetoothBridgeService   |
 |  - Win32 UI & System Tray Menu     |  Bluetooth    |  - CursorOverlayView (Floating View) |

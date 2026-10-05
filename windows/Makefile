@@ -3,7 +3,7 @@ WINDRES = x86_64-w64-mingw32-windres
 MAKENSIS = makensis
 
 CXXFLAGS = -std=c++17 -O2 -mwindows -municode -DUNICODE -D_UNICODE -Wall -static -static-libgcc -static-libstdc++ -s
-LIBS = -lws2_32 -lbthprops -lcomctl32 -lgdi32 -luser32 -lshell32 -lole32
+LIBS = -lws2_32 -lbthprops -lcomctl32 -lgdi32 -luser32 -lshell32 -lole32 -ldwmapi -luxtheme
 
 BIN_DIR = ../bin
 TARGET = $(BIN_DIR)/Lapdroid.exe

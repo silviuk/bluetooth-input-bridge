@@ -42,7 +42,7 @@ zip -uj "${BUILD_DIR}/unaligned.apk" classes.dex
 cd "${BASE_DIR}"
 
 echo "=== 6. Aligning APK with zipalign ==="
-rm -f "${BIN_DIR}/Lapdroid-unsigned.apk" "${BIN_DIR}/Lapdroid.apk" "${BIN_DIR}/S24InputBridge.apk"
+rm -f "${BIN_DIR}/Lapdroid-unsigned.apk" "${BIN_DIR}/Lapdroid.apk"
 "${SDK_BUILD_TOOLS}/zipalign" -v -p 4 "${BUILD_DIR}/unaligned.apk" "${BIN_DIR}/Lapdroid-unsigned.apk"
 
 echo "=== 7. Signing APK with apksigner (Formal Release Certificate) ==="
@@ -70,8 +70,6 @@ fi
     --out "${BIN_DIR}/Lapdroid.apk" \
     "${BIN_DIR}/Lapdroid-unsigned.apk"
 
-# Backward compatibility copy
-cp "${BIN_DIR}/Lapdroid.apk" "${BIN_DIR}/S24InputBridge.apk"
 rm -f "${BIN_DIR}/Lapdroid-unsigned.apk"
 
 echo "=== SUCCESS! Lapdroid APK generated: ${BIN_DIR}/Lapdroid.apk ==="

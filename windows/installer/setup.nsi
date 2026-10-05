@@ -28,6 +28,16 @@ RequestExecutionLevel admin
 
 !insertmacro MUI_LANGUAGE "English"
 
+Function .onInit
+  nsExec::Exec 'taskkill /F /IM Lapdroid.exe'
+  nsExec::Exec 'taskkill /F /IM BluetoothInputBridge.exe'
+FunctionEnd
+
+Function un.onInit
+  nsExec::Exec 'taskkill /F /IM Lapdroid.exe'
+  nsExec::Exec 'taskkill /F /IM BluetoothInputBridge.exe'
+FunctionEnd
+
 Section "Lapdroid (required)" SecCore
   SectionIn RO
 

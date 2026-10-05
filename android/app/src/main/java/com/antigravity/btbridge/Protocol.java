@@ -7,7 +7,7 @@ public class Protocol {
     public static final byte MAGIC_1 = (byte) 0x55;
 
     public static final UUID SPP_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-    public static final String SERVICE_NAME = "S24_Input_Bridge";
+    public static final String SERVICE_NAME = "Lapdroid_Bridge";
 
     // Message Types
     public static final byte MSG_PING          = 0x01;

@@ -3,16 +3,10 @@
 #include "resource.h"
 #include <windowsx.h>
 #include <commctrl.h>
+#include <uxtheme.h>
+#include <dwmapi.h>
 #include <sstream>
 #include <iomanip>
-
-#define CLR_BG          RGB(26, 27, 38)
-#define CLR_CARD        RGB(36, 40, 59)
-#define CLR_TEXT        RGB(192, 202, 245)
-#define CLR_TEXT_MUTED  RGB(122, 132, 172)
-#define CLR_ACCENT      RGB(122, 162, 247)
-#define CLR_SUCCESS     RGB(158, 206, 106)
-#define CLR_ERROR       RGB(247, 118, 142)
 
 static const wchar_t* WINDOW_CLASS_NAME = L"Lapdroid_Class";
 
@@ -44,22 +38,114 @@ MainWindow::MainWindow(HINSTANCE hInstance, BluetoothManager* btManager, InputCa
     , m_hFontStatus(NULL)
     , m_hBgBrush(NULL)
     , m_hCardBrush(NULL)
+    , m_hInputBrush(NULL)
+    , m_hAppIcon(NULL)
+    , m_hTrayIcon(NULL)
+    , m_isDark(false)
     , m_trayAdded(false)
     , m_reallyClosing(false)
+    , m_uTaskbarRestartMsg(0)
 {
     ZeroMemory(&m_nid, sizeof(m_nid));
-    m_hBgBrush = CreateSolidBrush(CLR_BG);
-    m_hCardBrush = CreateSolidBrush(CLR_CARD);
+    ZeroMemory(&m_theme, sizeof(m_theme));
+    m_isDark = DetectWindowsDarkMode();
+    ApplyTheme(m_isDark);
 }
 
 MainWindow::~MainWindow() {
     RemoveTrayIcon();
     if (m_hBgBrush) DeleteObject(m_hBgBrush);
     if (m_hCardBrush) DeleteObject(m_hCardBrush);
+    if (m_hInputBrush) DeleteObject(m_hInputBrush);
     if (m_hFontTitle) DeleteObject(m_hFontTitle);
     if (m_hFontNormal) DeleteObject(m_hFontNormal);
     if (m_hFontBold) DeleteObject(m_hFontBold);
     if (m_hFontStatus) DeleteObject(m_hFontStatus);
+    if (m_hAppIcon) DestroyIcon(m_hAppIcon);
+    if (m_hTrayIcon) DestroyIcon(m_hTrayIcon);
+}
+
+bool MainWindow::DetectWindowsDarkMode() {
+    DWORD value = 1; // Default: Light Mode (1 = Light, 0 = Dark)
+    DWORD size = sizeof(value);
+    HKEY hKey;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER,
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+        0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        RegQueryValueExW(hKey, L"AppsUseLightTheme", NULL, NULL, (LPBYTE)&value, &size);
+        RegCloseKey(hKey);
+    }
+    return (value == 0);
+}
+
+void MainWindow::ApplyDwmDarkMode(bool isDark) {
+    if (!m_hWnd) return;
+    BOOL useDark = isDark ? TRUE : FALSE;
+    // DWMWA_USE_IMMERSIVE_DARK_MODE (20 on Win10 2004+ and Win11; 19 on older Win10)
+    DwmSetWindowAttribute(m_hWnd, 20, &useDark, sizeof(useDark));
+    DwmSetWindowAttribute(m_hWnd, 19, &useDark, sizeof(useDark));
+}
+
+void MainWindow::ApplyTheme(bool isDark) {
+    m_isDark = isDark;
+    if (m_isDark) {
+        m_theme.isDark = true;
+        m_theme.bg = RGB(32, 32, 32);            // #202020 Modern Windows 11 Dark
+        m_theme.cardBg = RGB(45, 45, 45);        // #2D2D2D Surface
+        m_theme.inputBg = RGB(45, 45, 45);       // #2D2D2D
+        m_theme.text = RGB(242, 242, 242);       // #F2F2F2 Crisp Off-white
+        m_theme.textMuted = RGB(160, 160, 160);  // #A0A0A0
+        m_theme.textTitle = RGB(255, 255, 255);  // #FFFFFF
+        m_theme.accent = RGB(96, 205, 255);      // #60CDFF Fluent Light Blue
+        m_theme.statusSuccess = RGB(108, 203, 95); // #6CCB5F
+        m_theme.statusError = RGB(255, 120, 130);  // #FF7882
+    } else {
+        m_theme.isDark = false;
+        m_theme.bg = RGB(243, 243, 243);          // #F3F3F3 Modern Windows 11 Light
+        m_theme.cardBg = RGB(255, 255, 255);      // #FFFFFF
+        m_theme.inputBg = RGB(255, 255, 255);     // #FFFFFF
+        m_theme.text = RGB(30, 30, 30);           // #1E1E1E Charcoal dark text
+        m_theme.textMuted = RGB(100, 100, 100);   // #646464
+        m_theme.textTitle = RGB(0, 0, 0);         // #000000
+        m_theme.accent = RGB(0, 103, 192);        // #0067C0 Windows Fluent Blue
+        m_theme.statusSuccess = RGB(16, 124, 16); // #107C10 Crisp Green
+        m_theme.statusError = RGB(196, 43, 28);   // #C42B1C
+    }
+
+    if (m_hBgBrush) DeleteObject(m_hBgBrush);
+    if (m_hCardBrush) DeleteObject(m_hCardBrush);
+    if (m_hInputBrush) DeleteObject(m_hInputBrush);
+
+    m_hBgBrush = CreateSolidBrush(m_theme.bg);
+    m_hCardBrush = CreateSolidBrush(m_theme.cardBg);
+    m_hInputBrush = CreateSolidBrush(m_theme.inputBg);
+
+    if (m_hWnd) {
+        SetClassLongPtrW(m_hWnd, GCLP_HBRBACKGROUND, (LONG_PTR)m_hBgBrush);
+        ApplyDwmDarkMode(m_isDark);
+
+        const wchar_t* themeName = m_isDark ? L"DarkMode_Explorer" : L"Explorer";
+        const wchar_t* cfdTheme = m_isDark ? L"DarkMode_CFD" : L"Explorer";
+
+        if (m_hRadioServer) SetWindowTheme(m_hRadioServer, themeName, NULL);
+        if (m_hRadioClient) SetWindowTheme(m_hRadioClient, themeName, NULL);
+        if (m_hComboDevices) SetWindowTheme(m_hComboDevices, cfdTheme, NULL);
+        if (m_hBtnRefresh) SetWindowTheme(m_hBtnRefresh, themeName, NULL);
+        if (m_hBtnConnect) SetWindowTheme(m_hBtnConnect, themeName, NULL);
+        if (m_hBtnToggleCapture) SetWindowTheme(m_hBtnToggleCapture, themeName, NULL);
+        if (m_hSliderSensitivity) SetWindowTheme(m_hSliderSensitivity, themeName, NULL);
+        if (m_hBtnMinimizeTray) SetWindowTheme(m_hBtnMinimizeTray, themeName, NULL);
+
+        if (m_hBtnBack) SetWindowTheme(m_hBtnBack, themeName, NULL);
+        if (m_hBtnHome) SetWindowTheme(m_hBtnHome, themeName, NULL);
+        if (m_hBtnRecents) SetWindowTheme(m_hBtnRecents, themeName, NULL);
+        if (m_hBtnNotif) SetWindowTheme(m_hBtnNotif, themeName, NULL);
+        if (m_hBtnVolDown) SetWindowTheme(m_hBtnVolDown, themeName, NULL);
+        if (m_hBtnVolUp) SetWindowTheme(m_hBtnVolUp, themeName, NULL);
+        if (m_hBtnLock) SetWindowTheme(m_hBtnLock, themeName, NULL);
+
+        RedrawWindow(m_hWnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+    }
 }
 
 bool MainWindow::Create() {
@@ -68,13 +154,23 @@ bool MainWindow::Create() {
     icex.dwICC = ICC_STANDARD_CLASSES | ICC_BAR_CLASSES | ICC_WIN95_CLASSES;
     InitCommonControlsEx(&icex);
 
+    // Register taskbar restart notification to recover tray icon if Explorer restarts
+    m_uTaskbarRestartMsg = RegisterWindowMessageW(L"TaskbarCreated");
+
+    // Load application and tray icons
+    m_hAppIcon = (HICON)LoadImageW(m_hInstance, MAKEINTRESOURCEW(IDI_APP_ICON),
+        IMAGE_ICON, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR);
+    m_hTrayIcon = (HICON)LoadImageW(m_hInstance, MAKEINTRESOURCEW(IDI_APP_ICON),
+        IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
+
     WNDCLASSEXW wc;
     ZeroMemory(&wc, sizeof(wc));
     wc.cbSize = sizeof(WNDCLASSEXW);
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = MainWindow::WndProc;
     wc.hInstance = m_hInstance;
-    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    wc.hIcon = m_hAppIcon ? m_hAppIcon : LoadIcon(NULL, IDI_APPLICATION);
+    wc.hIconSm = m_hTrayIcon ? m_hTrayIcon : LoadIcon(NULL, IDI_APPLICATION);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = m_hBgBrush;
     wc.lpszClassName = WINDOW_CLASS_NAME;
@@ -101,6 +197,7 @@ bool MainWindow::Create() {
 
     CreateControls();
     ApplyModernFonts();
+    ApplyTheme(m_isDark);
     SetupTrayIcon();
     RefreshDeviceList();
 
@@ -151,7 +248,7 @@ void MainWindow::CreateControls() {
     curY += 32;
 
     // Subtitle label
-    HWND hSub = CreateWindowExW(0, L"STATIC", L"Control your phone with your laptop/PC keyboard and touchpad over Bluetooth",
+    HWND hSub = CreateWindowExW(0, L"STATIC", L"Control your Android phone with your laptop/PC keyboard and touchpad over Bluetooth",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
         padX, curY, 500, 20, m_hWnd, NULL, m_hInstance, NULL);
     SendMessageW(hSub, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
@@ -164,13 +261,13 @@ void MainWindow::CreateControls() {
     SendMessageW(hModeLabel, WM_SETFONT, (WPARAM)m_hFontBold, TRUE);
     curY += 24;
 
-    m_hRadioServer = CreateWindowExW(0, L"BUTTON", L"Server Mode (Wait for S24 Ultra to connect)",
+    m_hRadioServer = CreateWindowExW(0, L"BUTTON", L"Server Mode (Wait for Android phone to connect)",
         WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON | WS_GROUP,
         padX + 10, curY, 480, 22, m_hWnd, (HMENU)IDC_RADIO_SERVER, m_hInstance, NULL);
     SendMessageW(m_hRadioServer, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
     curY += 26;
 
-    m_hRadioClient = CreateWindowExW(0, L"BUTTON", L"Client Mode (Connect to paired S24 Ultra)",
+    m_hRadioClient = CreateWindowExW(0, L"BUTTON", L"Client Mode (Connect to paired Android phone)",
         WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON,
         padX + 10, curY, 480, 22, m_hWnd, (HMENU)IDC_RADIO_CLIENT, m_hInstance, NULL);
     SendMessageW(m_hRadioClient, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
@@ -210,7 +307,7 @@ void MainWindow::CreateControls() {
     SendMessageW(hInputLabel, WM_SETFONT, (WPARAM)m_hFontBold, TRUE);
     curY += 24;
 
-    m_hBtnToggleCapture = CreateWindowExW(0, L"BUTTON", L"Capture Input for S24 Ultra (Hotkey: F12)",
+    m_hBtnToggleCapture = CreateWindowExW(0, L"BUTTON", L"Capture Input for Android Phone (Hotkey: F12)",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         padX + 10, curY, 480, 42, m_hWnd, (HMENU)IDC_BTN_TOGGLE_CAPTURE, m_hInstance, NULL);
     SendMessageW(m_hBtnToggleCapture, WM_SETFONT, (WPARAM)m_hFontBold, TRUE);
@@ -294,16 +391,22 @@ void MainWindow::RefreshDeviceList() {
 
         ComboBox_AddString(m_hComboDevices, displayName.c_str());
 
-        // Check if device name contains S24 or Galaxy
-        if (displayName.find(L"S24") != std::wstring::npos ||
-            displayName.find(L"Galaxy") != std::wstring::npos ||
-            displayName.find(L"Samsung") != std::wstring::npos) {
-            defaultIndex = (int)i;
+        // Prefer paired device that looks like an Android phone / mobile device
+        std::wstring lowerName = displayName;
+        for (auto& c : lowerName) c = towlower(c);
+        if (lowerName.find(L"phone") != std::wstring::npos ||
+            lowerName.find(L"android") != std::wstring::npos ||
+            lowerName.find(L"pixel") != std::wstring::npos ||
+            lowerName.find(L"galaxy") != std::wstring::npos ||
+            lowerName.find(L"samsung") != std::wstring::npos ||
+            lowerName.find(L"oneplus") != std::wstring::npos ||
+            lowerName.find(L"xiaomi") != std::wstring::npos) {
+            if (defaultIndex < 0) defaultIndex = (int)i;
         }
     }
 
     if (m_cachedDevices.empty()) {
-        ComboBox_AddString(m_hComboDevices, L"No paired devices found (pair S24 in Windows Settings)");
+        ComboBox_AddString(m_hComboDevices, L"No paired devices found (pair Android phone in Windows Settings)");
         ComboBox_SetCurSel(m_hComboDevices, 0);
     } else {
         ComboBox_SetCurSel(m_hComboDevices, (defaultIndex >= 0) ? defaultIndex : 0);
@@ -311,17 +414,30 @@ void MainWindow::RefreshDeviceList() {
 }
 
 void MainWindow::SetupTrayIcon() {
+    if (!m_hWnd) return;
+
+    // Delete any existing tray icon first to ensure clean state
+    Shell_NotifyIconW(NIM_DELETE, &m_nid);
+
     ZeroMemory(&m_nid, sizeof(m_nid));
     m_nid.cbSize = sizeof(NOTIFYICONDATAW);
     m_nid.hWnd = m_hWnd;
     m_nid.uID = 1;
-    m_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_INFO;
+    m_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     m_nid.uCallbackMessage = WM_TRAYNOTIFY;
-    m_nid.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-    wcscpy(m_nid.szTip, L"Lapdroid - Bluetooth Input Bridge");
 
-    Shell_NotifyIconW(NIM_ADD, &m_nid);
-    m_trayAdded = true;
+    if (!m_hTrayIcon) {
+        m_hTrayIcon = (HICON)LoadImageW(m_hInstance, MAKEINTRESOURCEW(IDI_APP_ICON),
+            IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
+    }
+    m_nid.hIcon = m_hTrayIcon ? m_hTrayIcon : LoadIcon(NULL, IDI_APPLICATION);
+    wcsncpy(m_nid.szTip, L"Lapdroid - Bluetooth Input Bridge", sizeof(m_nid.szTip) / sizeof(wchar_t) - 1);
+
+    if (Shell_NotifyIconW(NIM_ADD, &m_nid)) {
+        m_trayAdded = true;
+        m_nid.uVersion = NOTIFYICON_VERSION_4;
+        Shell_NotifyIconW(NIM_SETVERSION, &m_nid);
+    }
 }
 
 void MainWindow::RemoveTrayIcon() {
@@ -432,7 +548,7 @@ void MainWindow::OnToggleCaptureClicked() {
 
 void MainWindow::OnSendAction(uint8_t action) {
     if (!m_btManager->IsConnected()) {
-        MessageBoxW(m_hWnd, L"Bluetooth is not connected to S24 Ultra.", L"Not Connected", MB_OK | MB_ICONINFORMATION);
+        MessageBoxW(m_hWnd, L"Bluetooth is not connected to Android phone.", L"Not Connected", MB_OK | MB_ICONINFORMATION);
         return;
     }
 
@@ -447,7 +563,7 @@ void MainWindow::UpdateStatusUI(ConnectionStatus status, const std::wstring& msg
 
     if (status == ConnectionStatus::Connected) {
         Button_SetText(m_hBtnConnect, L"Disconnect");
-        ShowTrayNotification(L"Connected to S24 Ultra", L"Bluetooth input link established. Press F12 to capture input.");
+        ShowTrayNotification(L"Connected to Android Phone", L"Bluetooth input link established. Press F12 to capture input.");
     } else if (status == ConnectionStatus::Listening) {
         Button_SetText(m_hBtnConnect, L"Stop Server");
     } else {
@@ -458,9 +574,9 @@ void MainWindow::UpdateStatusUI(ConnectionStatus status, const std::wstring& msg
 
 void MainWindow::UpdateCaptureUI(bool isCapturing) {
     if (isCapturing) {
-        Button_SetText(m_hBtnToggleCapture, L">> CAPTURING INPUT FOR S24 ULTRA (Press F12 to Stop) <<");
+        Button_SetText(m_hBtnToggleCapture, L">> CAPTURING INPUT FOR ANDROID PHONE (Press F12 to Stop) <<");
     } else {
-        Button_SetText(m_hBtnToggleCapture, L"Capture Input for S24 Ultra (Hotkey: F12)");
+        Button_SetText(m_hBtnToggleCapture, L"Capture Input for Android Phone (Hotkey: F12)");
     }
     UpdateTrayTooltip();
 }
@@ -486,7 +602,19 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 }
 
 LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    if (msg == m_uTaskbarRestartMsg && m_uTaskbarRestartMsg != 0) {
+        // Explorer restarted: restore tray icon seamlessly
+        SetupTrayIcon();
+        return 0;
+    }
+
     switch (msg) {
+        case WM_SETTINGCHANGE: {
+            // OS theme switch (Light <-> Dark mode)
+            ApplyTheme(DetectWindowsDarkMode());
+            return 0;
+        }
+
         case WM_COMMAND: {
             int wmId = LOWORD(wParam);
             int wmEvent = HIWORD(wParam);
@@ -511,7 +639,7 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 
                 case IDC_BTN_MINIMIZE_TRAY:
                     ShowWindow(m_hWnd, SW_HIDE);
-                    ShowTrayNotification(L"S24 Ultra Input Bridge", L"Running in system tray. Right-click icon for quick actions.");
+                    ShowTrayNotification(L"Lapdroid", L"Running in system tray. Right-click icon for quick actions.");
                     break;
 
                 case IDC_BTN_ACT_BACK:     OnSendAction(ACT_BACK); break;
@@ -524,7 +652,7 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 
                 // Tray Menu Items
                 case IDM_TRAY_OPEN:
-                    ShowWindow(m_hWnd, SW_SHOW);
+                    ShowWindow(m_hWnd, SW_RESTORE);
                     SetForegroundWindow(m_hWnd);
                     break;
 
@@ -543,6 +671,7 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 
                 case IDM_TRAY_EXIT:
                     m_reallyClosing = true;
+                    RemoveTrayIcon();
                     DestroyWindow(m_hWnd);
                     break;
             }
@@ -566,7 +695,7 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
             if (lParam == WM_RBUTTONUP) {
                 ShowTrayMenu();
             } else if (lParam == WM_LBUTTONDBLCLK || lParam == WM_LBUTTONUP) {
-                ShowWindow(m_hWnd, SW_SHOW);
+                ShowWindow(m_hWnd, SW_RESTORE);
                 SetForegroundWindow(m_hWnd);
             }
             break;
@@ -584,22 +713,55 @@ LRESULT MainWindow::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 
         case WM_CTLCOLORSTATIC: {
             HDC hdcStatic = (HDC)wParam;
+            HWND hCtrl = (HWND)lParam;
             SetBkMode(hdcStatic, TRANSPARENT);
-            SetTextColor(hdcStatic, CLR_TEXT);
+
+            if (hCtrl == m_hStatusText) {
+                if (m_btManager->IsConnected()) {
+                    SetTextColor(hdcStatic, m_theme.statusSuccess);
+                } else if (m_btManager->GetStatus() == ConnectionStatus::Connecting ||
+                           m_btManager->GetStatus() == ConnectionStatus::Listening) {
+                    SetTextColor(hdcStatic, m_theme.accent);
+                } else {
+                    SetTextColor(hdcStatic, m_theme.textMuted);
+                }
+            } else {
+                SetTextColor(hdcStatic, m_theme.text);
+            }
             return (INT_PTR)m_hBgBrush;
+        }
+
+        case WM_CTLCOLORDLG:
+            return (INT_PTR)m_hBgBrush;
+
+        case WM_CTLCOLORBTN: {
+            HDC hdc = (HDC)wParam;
+            SetBkMode(hdc, TRANSPARENT);
+            SetTextColor(hdc, m_theme.text);
+            return (INT_PTR)m_hBgBrush;
+        }
+
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX: {
+            HDC hdc = (HDC)wParam;
+            SetBkMode(hdc, OPAQUE);
+            SetBkColor(hdc, m_theme.inputBg);
+            SetTextColor(hdc, m_theme.text);
+            return (INT_PTR)m_hInputBrush;
         }
 
         case WM_CLOSE: {
             if (!m_reallyClosing) {
                 // Minimize to tray instead of closing
                 ShowWindow(m_hWnd, SW_HIDE);
-                ShowTrayNotification(L"S24 Ultra Input Bridge", L"App is still active in the system tray. Right-click the tray icon to exit.");
+                ShowTrayNotification(L"Lapdroid", L"App is still active in the system tray. Right-click the tray icon to exit.");
                 return 0;
             }
             break;
         }
 
         case WM_DESTROY: {
+            RemoveTrayIcon();
             PostQuitMessage(0);
             return 0;
         }

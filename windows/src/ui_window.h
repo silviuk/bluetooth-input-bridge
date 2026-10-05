@@ -9,6 +9,19 @@
 #include "bluetooth_manager.h"
 #include "input_capture.h"
 
+struct ThemeColors {
+    bool isDark;
+    COLORREF bg;
+    COLORREF cardBg;
+    COLORREF inputBg;
+    COLORREF text;
+    COLORREF textMuted;
+    COLORREF textTitle;
+    COLORREF accent;
+    COLORREF statusSuccess;
+    COLORREF statusError;
+};
+
 class MainWindow {
 public:
     MainWindow(HINSTANCE hInstance, BluetoothManager* btManager, InputCapture* inputCapture);
@@ -22,6 +35,11 @@ public:
 
 private:
     LRESULT HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+    // Theme support
+    bool DetectWindowsDarkMode();
+    void ApplyTheme(bool isDark);
+    void ApplyDwmDarkMode(bool isDark);
 
     // Initialization & UI creation
     void CreateControls();
@@ -74,11 +92,19 @@ private:
     HFONT m_hFontStatus;
     HBRUSH m_hBgBrush;
     HBRUSH m_hCardBrush;
+    HBRUSH m_hInputBrush;
+    HICON m_hAppIcon;
+    HICON m_hTrayIcon;
+
+    // Theme state
+    ThemeColors m_theme;
+    bool m_isDark;
 
     // Tray icon data
     NOTIFYICONDATAW m_nid;
     bool m_trayAdded;
     bool m_reallyClosing;
+    UINT m_uTaskbarRestartMsg;
 
     std::vector<BluetoothDeviceInfo> m_cachedDevices;
 };

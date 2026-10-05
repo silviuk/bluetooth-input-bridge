@@ -155,7 +155,7 @@ bool BluetoothManager::StartServer(ULONG port) {
     }
 
     m_running = true;
-    SetStatus(ConnectionStatus::Listening, L"Waiting for S24 Ultra to connect...");
+    SetStatus(ConnectionStatus::Listening, L"Waiting for Android phone to connect...");
 
     m_serverThread = std::thread(&BluetoothManager::ServerThreadProc, this);
     return true;
