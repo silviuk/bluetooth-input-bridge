@@ -74,7 +74,7 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
 
         mBtnGrantBt.setOnClickListener(v -> requestMissingRuntimePermissions());
         mBtnGrantOverlay.setOnClickListener(v -> requestOverlayPermission());
-        mBtnGrantAccess.setOnClickListener(v -> openAccessibilitySettings());
+        mBtnGrantAccess.setOnClickListener(v -> checkAndPromptAccessibility());
 
         mBtnToggleServer.setOnClickListener(v -> {
             if (mBound && mService != null) {
@@ -250,10 +250,26 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         if (InputAccessibilityService.getInstance() == null) {
             new AlertDialog.Builder(this)
                     .setTitle("Step 3: Accessibility Engine")
-                    .setMessage("To inject keyboard typing, taps, and touchpad clicks, enable Lapdroid in Accessibility Settings.")
-                    .setPositiveButton("Open Settings", (dialog, which) -> openAccessibilitySettings())
+                    .setMessage("Lapdroid needs Accessibility access to inject keyboard typing and touchpad gestures.\n\n" +
+                            "ℹ️ If Android 13/14 blocks this with 'Restricted setting':\n" +
+                            "1. Tap 'App Info' below\n" +
+                            "2. Tap the three dots (⋮) in the top right corner\n" +
+                            "3. Tap 'Allow restricted settings'\n" +
+                            "4. Return and tap 'Accessibility Settings'")
+                    .setPositiveButton("Accessibility Settings", (dialog, which) -> openAccessibilitySettings())
+                    .setNeutralButton("Open App Info", (dialog, which) -> openAppInfoSettings())
                     .setNegativeButton("Later", null)
                     .show();
+        }
+    }
+
+    private void openAppInfoSettings() {
+        try {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(this, "Could not open App Info", Toast.LENGTH_SHORT).show();
         }
     }
 
