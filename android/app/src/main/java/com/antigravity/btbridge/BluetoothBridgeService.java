@@ -196,10 +196,22 @@ public class BluetoothBridgeService extends Service {
         mIsRunning = false;
         mIsConnected = false;
         stopForeground(true);
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) {
+            nm.cancel(NOTIFICATION_ID);
+            nm.cancelAll();
+        }
         stopSelf();
         try {
             sendBroadcast(new Intent(ACTION_EXIT_APP));
         } catch (Exception ignored) {}
+
+        mMainHandler.postDelayed(() -> {
+            try {
+                android.os.Process.killProcess(android.os.Process.myPid());
+                System.exit(0);
+            } catch (Exception ignored) {}
+        }, 200);
     }
 
     public synchronized void stopServiceInternal() {

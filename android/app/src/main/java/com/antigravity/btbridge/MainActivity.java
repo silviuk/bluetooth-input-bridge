@@ -3,6 +3,7 @@ package com.antigravity.btbridge;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.NotificationManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
@@ -18,7 +19,9 @@ import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.provider.Settings;
 import android.view.View;
 import android.widget.AdapterView;
@@ -131,7 +134,7 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent != null && BluetoothBridgeService.ACTION_EXIT_APP.equals(intent.getAction())) {
-                finishAffinity();
+                killAppNow();
             }
         }
     };
@@ -304,7 +307,7 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
                 exitIntent.setAction(BluetoothBridgeService.ACTION_EXIT);
                 startService(exitIntent);
             }
-            finishAffinity();
+            killAppNow();
         });
 
         // Permission buttons
@@ -353,6 +356,32 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
             refreshPairedDevices();
             updateActionButtons(true);
         }
+    }
+
+    private void killAppNow() {
+        AppLogger.i("MainActivity", "killAppNow: completely terminating application process");
+        if (mBound) {
+            try {
+                unbindService(mConnection);
+            } catch (Exception ignored) {}
+            mBound = false;
+        }
+
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.cancelAll();
+            }
+        } catch (Exception ignored) {}
+
+        finishAndRemoveTask();
+
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            try {
+                android.os.Process.killProcess(android.os.Process.myPid());
+                System.exit(0);
+            } catch (Exception ignored) {}
+        }, 120);
     }
 
     private void updateActionButtons(boolean isRunning) {
