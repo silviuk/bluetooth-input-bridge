@@ -2,30 +2,38 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background"
+    android:background="@color/m3_surface"
     android:orientation="vertical">
 
-    <!-- Top App Bar -->
+    <!-- Material 3 Top App Bar -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="20dp"
-        android:paddingTop="16dp"
-        android:paddingEnd="20dp"
-        android:paddingBottom="12dp">
+        android:paddingStart="24dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="16dp">
 
-        <ImageView
-            android:layout_width="46dp"
-            android:layout_height="46dp"
-            android:contentDescription="Lapdroid App Icon"
-            android:src="@mipmap/ic_launcher" />
+        <!-- App Icon Badge -->
+        <FrameLayout
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/m3_icon_container_bg">
+
+            <ImageView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="center"
+                android:contentDescription="Lapdroid App Icon"
+                android:src="@mipmap/ic_launcher" />
+        </FrameLayout>
 
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="14dp"
+            android:layout_marginStart="16dp"
             android:layout_weight="1"
             android:orientation="vertical">
 
@@ -33,28 +41,28 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Lapdroid"
-                android:textColor="@color/text_primary"
-                android:textSize="22sp"
+                android:textColor="@color/m3_on_surface"
+                android:textSize="24sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="Share keyboard, mouse pointer &amp; stylus across Windows and Android"
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp" />
+                android:text="Keyboard, mouse &amp; stylus cross-device bridge"
+                android:textColor="@color/m3_on_surface_variant"
+                android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Top Tab Selector (3 Tabs) -->
+    <!-- Material 3 Segmented Pill Tabs Container -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="20dp"
         android:layout_marginEnd="20dp"
-        android:layout_marginBottom="12dp"
-        android:background="@drawable/tab_bg_rounded"
+        android:layout_marginBottom="14dp"
+        android:background="@drawable/m3_pill_segmented_bg"
         android:orientation="horizontal"
         android:padding="4dp">
 
@@ -62,38 +70,41 @@
             android:id="@+id/btn_tab_controls"
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="0dp"
-            android:layout_height="38dp"
+            android:layout_height="40dp"
             android:layout_weight="1"
-            android:backgroundTint="@color/primary"
+            android:background="@drawable/m3_pill_active"
             android:text="Controls"
+            android:textAllCaps="false"
             android:textColor="#FFFFFF"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
         <Button
             android:id="@+id/btn_tab_setup"
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="0dp"
-            android:layout_height="38dp"
+            android:layout_height="40dp"
             android:layout_marginStart="4dp"
-            android:layout_weight="1.2"
-            android:backgroundTint="@color/card_bg"
+            android:layout_weight="1.25"
+            android:background="@drawable/m3_pill_inactive"
             android:text="Setup &amp; About"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:textColor="@color/m3_on_surface_variant"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
         <Button
             android:id="@+id/btn_tab_logs"
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="0dp"
-            android:layout_height="38dp"
+            android:layout_height="40dp"
             android:layout_marginStart="4dp"
-            android:layout_weight="1"
-            android:backgroundTint="@color/card_bg"
+            android:layout_weight="0.85"
+            android:background="@drawable/m3_pill_inactive"
             android:text="Logs"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:textColor="@color/m3_on_surface_variant"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -113,352 +124,562 @@
             android:orientation="vertical"
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
-            android:paddingBottom="24dp">
+            android:paddingBottom="32dp">
 
-            <!-- Connection Status Card -->
+            <!-- Hero Connection Status & Dynamic Actions Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/card_bg_rounded"
+                android:background="@drawable/m3_card_bg"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Connection Status"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp"
+                    android:letterSpacing="0.08"
+                    android:text="BRIDGE STATUS"
+                    android:textColor="@color/m3_primary"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:id="@+id/tv_connection_status"
+                <!-- Status Pill Chip -->
+                <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Initializing..."
-                    android:textColor="@color/status_green"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <!-- Bluetooth Connection Mode & Dynamic Action Buttons Card -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/card_bg_rounded"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Bluetooth Connection Mode"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <RadioGroup
-                    android:id="@+id/rg_connection_mode"
-                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:orientation="vertical">
+                    android:background="@drawable/m3_status_chip_bg"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="6dp">
 
-                    <RadioButton
-                        android:id="@+id/rb_mode_server"
-                        android:layout_width="match_parent"
+                    <TextView
+                        android:id="@+id/tv_connection_dot"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:checked="true"
-                        android:text="Server Mode (Listen for PC to connect)"
-                        android:textColor="@color/text_primary"
-                        android:textSize="13sp" />
+                        android:text="● "
+                        android:textColor="@color/m3_success"
+                        android:textSize="14sp" />
 
-                    <RadioButton
-                        android:id="@+id/rb_mode_client"
-                        android:layout_width="match_parent"
+                    <TextView
+                        android:id="@+id/tv_connection_status"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Client Mode (Connect to paired PC)"
-                        android:textColor="@color/text_primary"
-                        android:textSize="13sp" />
-                </RadioGroup>
+                        android:text="Initializing..."
+                        android:textColor="@color/m3_on_surface"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
-                <!-- Dynamic Action Buttons (Same as in Notification!) -->
-                <!-- When Running: Stop, Restart, Exit -->
-                <!-- When Not Running: Start, Exit -->
+                <TextView
+                    android:id="@+id/tv_bridge_subtext"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Bluetooth RFCOMM • Channel 1 • SPP UUID: 00001101"
+                    android:textColor="@color/m3_on_surface_variant"
+                    android:textSize="12sp" />
+
+                <!-- Dynamic Action Buttons (Matching Notification) -->
                 <LinearLayout
                     android:id="@+id/layout_dynamic_buttons"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginTop="16dp"
                     android:orientation="horizontal">
 
                     <!-- Start Button (visible when not running) -->
                     <Button
                         android:id="@+id/btn_action_start"
+                        style="?android:attr/borderlessButtonStyle"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="46dp"
                         android:layout_weight="1"
-                        android:layout_marginEnd="4dp"
-                        android:backgroundTint="@color/status_green"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/m3_btn_filled_success"
                         android:text="Start"
+                        android:textAllCaps="false"
                         android:textColor="#FFFFFF"
+                        android:textSize="14sp"
                         android:textStyle="bold"
                         android:visibility="gone" />
 
                     <!-- Stop Button (visible when running) -->
                     <Button
                         android:id="@+id/btn_action_stop"
+                        style="?android:attr/borderlessButtonStyle"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="46dp"
                         android:layout_weight="1"
-                        android:layout_marginEnd="4dp"
-                        android:backgroundTint="@color/status_red"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/m3_btn_filled_error"
                         android:text="Stop"
+                        android:textAllCaps="false"
                         android:textColor="#FFFFFF"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
 
                     <!-- Restart Button (visible when running) -->
                     <Button
                         android:id="@+id/btn_action_restart"
+                        style="?android:attr/borderlessButtonStyle"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="46dp"
                         android:layout_weight="1"
-                        android:layout_marginStart="2dp"
-                        android:layout_marginEnd="2dp"
-                        android:backgroundTint="@color/primary"
+                        android:layout_marginStart="3dp"
+                        android:layout_marginEnd="3dp"
+                        android:background="@drawable/m3_btn_tonal"
                         android:text="Restart"
-                        android:textColor="#FFFFFF"
+                        android:textAllCaps="false"
+                        android:textColor="@color/m3_on_secondary_container"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
 
                     <!-- Exit Button (always visible) -->
                     <Button
                         android:id="@+id/btn_action_exit"
+                        style="?android:attr/borderlessButtonStyle"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="46dp"
                         android:layout_weight="1"
-                        android:layout_marginStart="4dp"
-                        android:backgroundTint="@color/card_stroke"
+                        android:layout_marginStart="6dp"
+                        android:background="@drawable/m3_btn_outlined"
                         android:text="Exit"
-                        android:textColor="@color/text_primary"
+                        android:textAllCaps="false"
+                        android:textColor="@color/m3_on_surface"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Mode Selector Card (M3 Segmented Button) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/m3_card_bg"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.08"
+                    android:text="CONNECTION MODE"
+                    android:textColor="@color/m3_primary"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <!-- M3 Segmented Mode Pill Selector -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/m3_pill_segmented_bg"
+                    android:orientation="horizontal"
+                    android:padding="3dp">
+
+                    <Button
+                        android:id="@+id/btn_mode_server"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="0dp"
+                        android:layout_height="38dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/m3_pill_active"
+                        android:text="Server (Listen)"
+                        android:textAllCaps="false"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btn_mode_client"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="0dp"
+                        android:layout_height="38dp"
+                        android:layout_marginStart="3dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/m3_pill_inactive"
+                        android:text="Client (Connect)"
+                        android:textAllCaps="false"
+                        android:textColor="@color/m3_on_surface_variant"
+                        android:textSize="13sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <!-- Client Mode Controls -->
+                <!-- Client Mode Device Selector -->
                 <LinearLayout
                     android:id="@+id/layout_client_controls"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="14dp"
                     android:orientation="vertical"
                     android:visibility="gone">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Select Paired PC / Device:"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
+                        android:text="Select Paired PC:"
+                        android:textColor="@color/m3_on_surface_variant"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
 
-                    <Spinner
-                        android:id="@+id/sp_paired_devices"
+                    <FrameLayout
                         android:layout_width="match_parent"
-                        android:layout_height="44dp"
-                        android:layout_marginTop="6dp"
-                        android:background="@android:drawable/btn_dropdown"
-                        android:spinnerMode="dropdown" />
+                        android:layout_height="48dp"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/m3_dropdown_bg"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp">
+
+                        <Spinner
+                            android:id="@+id/sp_paired_devices"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@null"
+                            android:spinnerMode="dropdown" />
+                    </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="12dp"
                         android:orientation="horizontal">
 
                         <Button
                             android:id="@+id/btn_refresh_devices"
+                            style="?android:attr/borderlessButtonStyle"
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
+                            android:layout_height="44dp"
                             android:layout_weight="1"
-                            android:layout_marginEnd="4dp"
-                            android:backgroundTint="@color/primary"
+                            android:layout_marginEnd="6dp"
+                            android:background="@drawable/m3_btn_tonal"
                             android:text="Refresh"
-                            android:textColor="#FFFFFF" />
+                            android:textAllCaps="false"
+                            android:textColor="@color/m3_on_secondary_container"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
 
                         <Button
                             android:id="@+id/btn_connect_client"
+                            style="?android:attr/borderlessButtonStyle"
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
+                            android:layout_height="44dp"
                             android:layout_weight="1.6"
-                            android:layout_marginStart="4dp"
-                            android:backgroundTint="@color/status_green"
+                            android:layout_marginStart="6dp"
+                            android:background="@drawable/m3_btn_filled_success"
                             android:text="Connect to PC"
-                            android:textColor="#FFFFFF" />
+                            android:textAllCaps="false"
+                            android:textColor="#FFFFFF"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
                     </LinearLayout>
                 </LinearLayout>
-
             </LinearLayout>
 
-            <!-- Test Input Card -->
+            <!-- Test Typing Card (M3 Outlined Field) -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/card_bg_rounded"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/m3_card_bg"
                 android:orientation="vertical"
-                android:padding="14dp">
+                android:padding="20dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Test Typing Area"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp"
+                    android:letterSpacing="0.08"
+                    android:text="QUICK TEST"
+                    android:textColor="@color/m3_primary"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <EditText
                     android:id="@+id/et_test_input"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/m3_input_field_bg"
                     android:hint="Click here and type on PC keyboard to test..."
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_muted"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:textColor="@color/m3_on_surface"
+                    android:textColorHint="@color/m3_outline"
                     android:textSize="14sp" />
             </LinearLayout>
 
-            <!-- Tricky Keys & Forwarding Options Section -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:text="Keyboard &amp; Tricky Keys Options"
-                android:textColor="@color/text_primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
+            <!-- Keyboard & Tricky Keys Options (M3 Switch Rows) -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/card_bg_rounded"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/m3_card_bg"
                 android:orientation="vertical"
-                android:padding="14dp">
+                android:padding="20dp">
 
-                <!-- Enter Key Option -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Enter Key Behavior"
-                    android:textColor="@color/text_primary"
+                    android:letterSpacing="0.08"
+                    android:text="KEYBOARD BEHAVIOR"
+                    android:textColor="@color/m3_primary"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
-                <Spinner
-                    android:id="@+id/sp_enter_mode"
-                    android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:layout_marginTop="4dp"
-                    android:background="@android:drawable/btn_dropdown" />
-
-                <!-- Tab Key Option -->
+                <!-- Enter Key Mode -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="Tab Key Behavior"
-                    android:textColor="@color/text_primary"
+                    android:text="Enter Key Action:"
+                    android:textColor="@color/m3_on_surface"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
-                <Spinner
-                    android:id="@+id/sp_tab_mode"
+                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:layout_marginTop="4dp"
-                    android:background="@android:drawable/btn_dropdown" />
-
-                <!-- Windows Key Option -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Windows / Super Key Action"
-                    android:textColor="@color/text_primary"
-                    android:textStyle="bold" />
-
-                <Spinner
-                    android:id="@+id/sp_win_action"
-                    android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:layout_marginTop="4dp"
-                    android:background="@android:drawable/btn_dropdown" />
-
-                <!-- Shortcuts Checkboxes -->
-                <CheckBox
-                    android:id="@+id/cb_ctrl_shortcuts"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:checked="true"
-                    android:text="Enable Windows Ctrl Shortcuts (Ctrl+C, V, A, X, Z, Backspace, Ctrl+Enter)"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp" />
-
-                <CheckBox
-                    android:id="@+id/cb_alt_tab"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="46dp"
                     android:layout_marginTop="6dp"
-                    android:checked="true"
-                    android:text="Enable Alt+Tab as Recent Apps Switcher and Cycler"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp" />
+                    android:background="@drawable/m3_dropdown_bg"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp">
 
-                <CheckBox
-                    android:id="@+id/cb_ignore_placeholder"
+                    <Spinner
+                        android:id="@+id/sp_enter_mode"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@null" />
+                </FrameLayout>
+
+                <!-- Tab Key Mode -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="Tab Key Action:"
+                    android:textColor="@color/m3_on_surface"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/m3_dropdown_bg"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp">
+
+                    <Spinner
+                        android:id="@+id/sp_tab_mode"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@null" />
+                </FrameLayout>
+
+                <!-- Windows Key Action -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="Windows / Super Key Action:"
+                    android:textColor="@color/m3_on_surface"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/m3_dropdown_bg"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp">
+
+                    <Spinner
+                        android:id="@+id/sp_win_action"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@null" />
+                </FrameLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="14dp"
+                    android:background="@color/m3_outline_variant" />
+
+                <!-- M3 Switch Row 1: Ctrl Shortcuts -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:checked="true"
-                    android:text="Ignore Background Placeholder Text (e.g. WhatsApp 'Message')"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Windows Ctrl Shortcuts"
+                            android:textColor="@color/m3_on_surface"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Ctrl+C, Ctrl+V, Ctrl+A, Ctrl+Z, Ctrl+Enter"
+                            android:textColor="@color/m3_on_surface_variant"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <Switch
+                        android:id="@+id/sw_ctrl_shortcuts"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+
+                <!-- M3 Switch Row 2: Alt+Tab -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Alt+Tab Recent Apps Cycler"
+                            android:textColor="@color/m3_on_surface"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Quick switch on tap, carousel scroll on hold"
+                            android:textColor="@color/m3_on_surface_variant"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <Switch
+                        android:id="@+id/sw_alt_tab"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+
+                <!-- M3 Switch Row 3: Ignore Placeholder -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Ignore Placeholder Text"
+                            android:textColor="@color/m3_on_surface"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Ignore background 'Message' watermarks in chat apps"
+                            android:textColor="@color/m3_on_surface_variant"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <Switch
+                        android:id="@+id/sw_ignore_placeholder"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- Card: Stylus & Graphics Tablet Mode -->
+            <!-- Stylus & Graphics Tablet Mode Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:layout_marginBottom="16dp"
-                android:background="@drawable/card_bg_rounded"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/m3_card_bg"
                 android:orientation="vertical"
-                android:padding="14dp">
+                android:padding="20dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:letterSpacing="0.08"
+                    android:text="DIGITIZER TABLET"
+                    android:textColor="@color/m3_primary"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
                     android:text="Stylus &amp; Graphics Tablet Mode"
-                    android:textColor="@color/primary"
+                    android:textColor="@color/m3_on_surface"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="Transform this Android device into a pressure-sensitive graphics tablet for Windows. Draw directly into OneNote, Photoshop, Krita, MS Whiteboard, or Paint using your S-Pen or stylus."
-                    android:textColor="@color/text_secondary"
+                    android:layout_marginTop="4dp"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Transform this Android device into a pressure-sensitive graphics tablet for Windows. Draw with S-Pen / stylus directly in Photoshop, OneNote, Krita &amp; Paint."
+                    android:textColor="@color/m3_on_surface_variant"
                     android:textSize="12sp" />
 
                 <Button
                     android:id="@+id/btn_open_digitizer"
+                    style="?android:attr/borderlessButtonStyle"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:backgroundTint="@color/primary"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/m3_btn_filled_primary"
                     android:text="Open Graphics Tablet Pad"
-                    android:textColor="#FFFFFF" />
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
         </LinearLayout>
@@ -481,22 +702,23 @@
             android:orientation="vertical"
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
-            android:paddingBottom="24dp">
+            android:paddingBottom="32dp">
 
-            <!-- Tagline Header Card -->
+            <!-- Tagline Hero Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/card_bg_rounded"
+                android:background="@drawable/m3_card_bg"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="About Lapdroid"
-                    android:textColor="@color/primary"
-                    android:textSize="16sp"
+                    android:letterSpacing="0.08"
+                    android:text="LAPDROID"
+                    android:textColor="@color/m3_primary"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -505,39 +727,40 @@
                     android:layout_marginTop="6dp"
                     android:lineSpacingExtra="3dp"
                     android:text="Seamlessly share keyboard, mouse pointer, and stylus across Windows and Android over Bluetooth without Wi-Fi."
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
+                    android:textColor="@color/m3_on_surface"
+                    android:textSize="15sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginTop="8dp"
                     android:lineSpacingExtra="2dp"
-                    android:text="Lapdroid bridges your PC and phone into one unified workstation. Type seamlessly across apps, navigate with your laptop touchpad, and draw with pressure sensitivity in Windows creative software."
-                    android:textColor="@color/text_secondary"
+                    android:text="Lapdroid bridges your PC and phone into one unified workstation. Type across messaging apps, navigate with your laptop touchpad, and draw with pressure sensitivity in Windows creative software."
+                    android:textColor="@color/m3_on_surface_variant"
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <!-- Permissions Section Header -->
+            <!-- Required Permissions Header -->
             <TextView
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:text="Required Permissions (First-Time Setup)"
-                android:textColor="@color/text_primary"
-                android:textSize="15sp"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="8dp"
+                android:letterSpacing="0.08"
+                android:text="REQUIRED PERMISSIONS"
+                android:textColor="@color/m3_primary"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <!-- 1. Bluetooth Permission Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/card_bg_rounded"
+                android:background="@drawable/m3_card_bg"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="12dp">
+                android:padding="16dp">
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -549,7 +772,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="1. Bluetooth &amp; Notifications"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/m3_on_surface"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -558,29 +782,34 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:text="Checking..."
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/m3_on_surface_variant"
                         android:textSize="12sp" />
                 </LinearLayout>
 
                 <Button
                     android:id="@+id/btn_grant_bt"
+                    style="?android:attr/borderlessButtonStyle"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="@color/primary"
+                    android:layout_height="38dp"
+                    android:background="@drawable/m3_btn_filled_primary"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
                     android:text="Grant"
+                    android:textAllCaps="false"
                     android:textColor="#FFFFFF"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <!-- 2. Overlay Permission Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/card_bg_rounded"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/m3_card_bg"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="12dp">
+                android:padding="16dp">
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -592,7 +821,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="2. Cursor Overlay (Display over apps)"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/m3_on_surface"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -601,29 +831,34 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:text="Checking..."
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/m3_on_surface_variant"
                         android:textSize="12sp" />
                 </LinearLayout>
 
                 <Button
                     android:id="@+id/btn_grant_overlay"
+                    style="?android:attr/borderlessButtonStyle"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="@color/primary"
+                    android:layout_height="38dp"
+                    android:background="@drawable/m3_btn_filled_primary"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
                     android:text="Grant"
+                    android:textAllCaps="false"
                     android:textColor="#FFFFFF"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <!-- 3. Accessibility Permission Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/card_bg_rounded"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/m3_card_bg"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="12dp">
+                android:padding="16dp">
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -635,7 +870,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="3. Accessibility (Touch / Clicks)"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/m3_on_surface"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -644,101 +880,114 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:text="Checking..."
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/m3_on_surface_variant"
                         android:textSize="12sp" />
                 </LinearLayout>
 
                 <Button
                     android:id="@+id/btn_grant_access"
+                    style="?android:attr/borderlessButtonStyle"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="@color/primary"
+                    android:layout_height="38dp"
+                    android:background="@drawable/m3_btn_filled_primary"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
                     android:text="Grant"
+                    android:textAllCaps="false"
                     android:textColor="#FFFFFF"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <!-- 4. Direct Input Keyboard Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/card_bg_rounded"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/m3_card_bg"
                 android:orientation="vertical"
-                android:padding="12dp">
+                android:padding="16dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="4. Direct Input Keyboard (Pure Keystrokes)"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/m3_on_surface"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="4dp"
                     android:text="Directly forwards hardware key events to WhatsApp, Termux, and games without pre-existing text interference."
-                    android:textColor="@color/text_secondary"
+                    android:textColor="@color/m3_on_surface_variant"
                     android:textSize="12sp" />
 
                 <TextView
                     android:id="@+id/tv_ime_status"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginTop="8dp"
                     android:text="Status: Checking..."
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/m3_on_surface"
                     android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="10dp"
                     android:orientation="horizontal">
 
                     <Button
                         android:id="@+id/btn_open_ime_settings"
+                        style="?android:attr/borderlessButtonStyle"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="40dp"
                         android:layout_weight="1"
                         android:layout_marginEnd="4dp"
-                        android:backgroundTint="@color/card_stroke"
-                        android:text="Enable in Settings"
-                        android:textColor="@color/text_primary"
-                        android:textSize="11sp" />
+                        android:background="@drawable/m3_btn_tonal"
+                        android:text="1. Enable in Settings"
+                        android:textAllCaps="false"
+                        android:textColor="@color/m3_on_secondary_container"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
 
                     <Button
                         android:id="@+id/btn_switch_ime"
+                        style="?android:attr/borderlessButtonStyle"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="40dp"
                         android:layout_weight="1"
                         android:layout_marginStart="4dp"
-                        android:backgroundTint="@color/primary"
-                        android:text="Select as Keyboard"
+                        android:background="@drawable/m3_btn_filled_primary"
+                        android:text="2. Select as Keyboard"
+                        android:textAllCaps="false"
                         android:textColor="#FFFFFF"
-                        android:textSize="11sp" />
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- About, Copyright & GitHub Section -->
+            <!-- About, Author & GitHub Section -->
             <TextView
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
-                android:text="About &amp; Developer"
-                android:textColor="@color/text_primary"
-                android:textSize="15sp"
+                android:layout_marginBottom="8dp"
+                android:letterSpacing="0.08"
+                android:text="ABOUT &amp; DEVELOPER"
+                android:textColor="@color/m3_primary"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/card_bg_rounded"
+                android:background="@drawable/m3_card_bg"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -746,16 +995,23 @@
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <ImageView
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:contentDescription="Lapdroid Logo"
-                        android:src="@mipmap/ic_launcher" />
+                    <FrameLayout
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="@drawable/m3_icon_container_bg">
+
+                        <ImageView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Lapdroid Logo"
+                            android:src="@mipmap/ic_launcher" />
+                    </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
                         android:orientation="vertical">
 
@@ -763,8 +1019,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Lapdroid v0.3.0"
-                            android:textColor="@color/text_primary"
-                            android:textSize="16sp"
+                            android:textColor="@color/m3_on_surface"
+                            android:textSize="17sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -772,7 +1028,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
                             android:text="© Silviu Vlasceanu"
-                            android:textColor="@color/primary"
+                            android:textColor="@color/m3_primary"
                             android:textSize="13sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -781,35 +1037,37 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="12dp"
-                    android:background="@color/divider" />
+                    android:layout_marginTop="14dp"
+                    android:layout_marginBottom="14dp"
+                    android:background="@color/m3_outline_variant" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Source Code &amp; Documentation:"
-                    android:textColor="@color/text_secondary"
+                    android:text="Source Code &amp; Issue Tracker:"
+                    android:textColor="@color/m3_on_surface_variant"
                     android:textSize="12sp" />
 
                 <Button
                     android:id="@+id/btn_github_repo"
+                    style="?android:attr/borderlessButtonStyle"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="46dp"
                     android:layout_marginTop="8dp"
-                    android:backgroundTint="@color/primary"
+                    android:background="@drawable/m3_btn_tonal"
                     android:text="GitHub Repository (github.com/silviuk/lapdroid)"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp"
+                    android:textAllCaps="false"
+                    android:textColor="@color/m3_on_secondary_container"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="14dp"
                     android:lineSpacingExtra="2dp"
-                    android:text="Offline Privacy Guarantee: All communication runs entirely through standard Bluetooth RFCOMM sockets. No Wi-Fi, no local network, no cloud servers, and zero telemetry."
-                    android:textColor="@color/text_muted"
+                    android:text="Offline Privacy Guarantee: All communication runs entirely through local Bluetooth RFCOMM sockets. Zero Wi-Fi or Internet permissions required, no cloud dependencies, and zero telemetry."
+                    android:textColor="@color/m3_outline"
                     android:textSize="11sp" />
             </LinearLayout>
 
@@ -827,7 +1085,7 @@
         android:orientation="vertical"
         android:paddingStart="20dp"
         android:paddingEnd="20dp"
-        android:paddingBottom="16dp"
+        android:paddingBottom="24dp"
         android:visibility="gone">
 
         <!-- Logs Action Bar -->
@@ -836,7 +1094,7 @@
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingBottom="8dp">
+            android:paddingBottom="10dp">
 
             <TextView
                 android:id="@+id/tv_log_count"
@@ -844,7 +1102,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Live Diagnostic Logs"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/m3_on_surface"
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
@@ -853,10 +1111,14 @@
                 style="?android:attr/borderlessButtonStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:backgroundTint="@color/primary"
+                android:background="@drawable/m3_btn_tonal"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
                 android:text="Copy"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp" />
+                android:textAllCaps="false"
+                android:textColor="@color/m3_on_secondary_container"
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btn_clear_logs"
@@ -864,10 +1126,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
                 android:layout_marginStart="8dp"
-                android:backgroundTint="@color/card_bg"
+                android:background="@drawable/m3_btn_outlined"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
                 android:text="Clear"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
+                android:textAllCaps="false"
+                android:textColor="@color/m3_on_surface"
+                android:textSize="12sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <!-- Terminal View Container -->
@@ -875,9 +1141,9 @@
             android:id="@+id/scroll_logs"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@color/terminal_bg"
+            android:background="@color/m3_terminal_bg"
             android:fillViewport="true"
-            android:padding="12dp">
+            android:padding="14dp">
 
             <TextView
                 android:id="@+id/tv_log_content"
@@ -886,7 +1152,7 @@
                 android:fontFamily="monospace"
                 android:lineSpacingExtra="3dp"
                 android:text="[Lapdroid Logs Initialized]\n"
-                android:textColor="@color/terminal_text"
+                android:textColor="@color/m3_terminal_text"
                 android:textIsSelectable="true"
                 android:textSize="11sp" />
         </ScrollView>

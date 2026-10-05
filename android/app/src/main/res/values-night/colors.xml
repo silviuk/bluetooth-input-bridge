@@ -1,20 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dark Mode Colors -->
-    <color name="primary">#3B82F6</color>
-    <color name="primary_dark">#0F172A</color>
-    <color name="accent">#A855F7</color>
-    <color name="background">#0B0F19</color>
-    <color name="card_bg">#161F30</color>
-    <color name="card_stroke">#28354D</color>
-    <color name="tab_bg">#161F30</color>
-    <color name="text_primary">#F8FAFC</color>
-    <color name="text_secondary">#94A3B8</color>
-    <color name="text_muted">#64748B</color>
-    <color name="status_green">#22C55E</color>
-    <color name="status_red">#EF4444</color>
-    <color name="status_orange">#F59E0B</color>
-    <color name="terminal_bg">#030712</color>
-    <color name="terminal_text">#4ADE80</color>
-    <color name="divider">#243048</color>
+    <!-- ========================================================================= -->
+    <!-- MATERIAL 3 (DARK THEME / MATERIAL YOU) DESIGN SYSTEM TOKENS               -->
+    <!-- ========================================================================= -->
+    <!-- Surfaces -->
+    <color name="m3_surface">#10131A</color>
+    <color name="m3_surface_container">#1A1E26</color>
+    <color name="m3_surface_container_low">#141820</color>
+    <color name="m3_surface_container_high">#242934</color>
+    <color name="m3_surface_container_highest">#2E3442</color>
+
+    <!-- Content & Typography -->
+    <color name="m3_on_surface">#E2E2E9</color>
+    <color name="m3_on_surface_variant">#C4C6D0</color>
+    <color name="m3_outline">#8E9099</color>
+    <color name="m3_outline_variant">#323742</color>
+
+    <!-- Primary Accent (Vibrant M3 Sky Blue) -->
+    <color name="m3_primary">#9FCAFF</color>
+    <color name="m3_on_primary">#003258</color>
+    <color name="m3_primary_container">#00497D</color>
+    <color name="m3_on_primary_container">#D1E4FF</color>
+
+    <!-- Secondary (Tonal Elements) -->
+    <color name="m3_secondary">#BCC7DB</color>
+    <color name="m3_on_secondary">#253140</color>
+    <color name="m3_secondary_container">#3B4758</color>
+    <color name="m3_on_secondary_container">#D7E3F7</color>
+
+    <!-- Success / Connected (Mint Emerald M3) -->
+    <color name="m3_success">#72DD8D</color>
+    <color name="m3_on_success">#003913</color>
+    <color name="m3_success_container">#00531E</color>
+    <color name="m3_on_success_container">#C7F1D0</color>
+
+    <!-- Error / Disconnected / Stop (Pastel Coral M3) -->
+    <color name="m3_error">#FFB4AB</color>
+    <color name="m3_on_error">#690005</color>
+    <color name="m3_error_container">#93000A</color>
+    <color name="m3_on_error_container">#FFDAD6</color>
+
+    <!-- Warning / Reconnecting / Caution -->
+    <color name="m3_warning">#FFB77C</color>
+    <color name="m3_warning_container">#6F3800</color>
+    <color name="m3_on_warning_container">#FFDCC2</color>
+
+    <!-- Terminal -->
+    <color name="m3_terminal_bg">#06090E</color>
+    <color name="m3_terminal_text">#3FB950</color>
+
+    <!-- Legacy Compatibility Aliases -->
+    <color name="primary">@color/m3_primary</color>
+    <color name="primary_dark">#001D36</color>
+    <color name="accent">@color/m3_primary</color>
+    <color name="background">@color/m3_surface</color>
+    <color name="card_bg">@color/m3_surface_container</color>
+    <color name="card_stroke">@color/m3_outline_variant</color>
+    <color name="tab_bg">@color/m3_surface_container_low</color>
+    <color name="text_primary">@color/m3_on_surface</color>
+    <color name="text_secondary">@color/m3_on_surface_variant</color>
+    <color name="text_muted">@color/m3_outline</color>
+    <color name="status_green">@color/m3_success</color>
+    <color name="status_red">@color/m3_error</color>
+    <color name="status_orange">@color/m3_warning</color>
+    <color name="terminal_bg">@color/m3_terminal_bg</color>
+    <color name="terminal_text">@color/m3_terminal_text</color>
+    <color name="divider">@color/m3_outline_variant</color>
 </resources>

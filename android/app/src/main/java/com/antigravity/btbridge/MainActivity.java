@@ -15,7 +15,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
-import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -27,13 +26,11 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.Spinner;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -55,10 +52,11 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
 
     // Status & Mode
     private TextView mTvStatus;
-    private RadioGroup mRgMode;
-    private RadioButton mRbModeServer;
-    private RadioButton mRbModeClient;
+    private TextView mTvConnectionDot;
+    private Button mBtnModeServer;
+    private Button mBtnModeClient;
     private LinearLayout mLayoutClientControls;
+    private boolean mIsServerMode = true;
 
     // Dynamic Action Buttons (matching notification)
     private Button mBtnActionStart;
@@ -82,13 +80,13 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     private Button mBtnGrantAccess;
     private EditText mEtTestInput;
 
-    // Keyboard & Tricky Keys Options
+    // Keyboard & Tricky Keys Options (M3 Switches)
     private Spinner mSpEnterMode;
     private Spinner mSpTabMode;
     private Spinner mSpWinAction;
-    private CheckBox mCbCtrlShortcuts;
-    private CheckBox mCbAltTab;
-    private CheckBox mCbIgnorePlaceholder;
+    private Switch mSwCtrlShortcuts;
+    private Switch mSwAltTab;
+    private Switch mSwIgnorePlaceholder;
     private TextView mTvImeStatus;
     private Button mBtnOpenImeSettings;
     private Button mBtnSwitchIme;
@@ -154,9 +152,9 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
 
         // Bind status and mode
         mTvStatus = findViewById(R.id.tv_connection_status);
-        mRgMode = findViewById(R.id.rg_connection_mode);
-        mRbModeServer = findViewById(R.id.rb_mode_server);
-        mRbModeClient = findViewById(R.id.rb_mode_client);
+        mTvConnectionDot = findViewById(R.id.tv_connection_dot);
+        mBtnModeServer = findViewById(R.id.btn_mode_server);
+        mBtnModeClient = findViewById(R.id.btn_mode_client);
         mLayoutClientControls = findViewById(R.id.layout_client_controls);
 
         // Bind Dynamic Action Buttons (matching notification)
@@ -179,13 +177,13 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         mBtnGrantAccess = findViewById(R.id.btn_grant_access);
         mEtTestInput = findViewById(R.id.et_test_input);
 
-        // Bind Keyboard & Tricky Keys Options
+        // Bind Keyboard & Tricky Keys Options (M3 Switches)
         mSpEnterMode = findViewById(R.id.sp_enter_mode);
         mSpTabMode = findViewById(R.id.sp_tab_mode);
         mSpWinAction = findViewById(R.id.sp_win_action);
-        mCbCtrlShortcuts = findViewById(R.id.cb_ctrl_shortcuts);
-        mCbAltTab = findViewById(R.id.cb_alt_tab);
-        mCbIgnorePlaceholder = findViewById(R.id.cb_ignore_placeholder);
+        mSwCtrlShortcuts = findViewById(R.id.sw_ctrl_shortcuts);
+        mSwAltTab = findViewById(R.id.sw_alt_tab);
+        mSwIgnorePlaceholder = findViewById(R.id.sw_ignore_placeholder);
         mTvImeStatus = findViewById(R.id.tv_ime_status);
         mBtnOpenImeSettings = findViewById(R.id.btn_open_ime_settings);
         mBtnSwitchIme = findViewById(R.id.btn_switch_ime);
@@ -212,23 +210,14 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         mBtnClearLogs = findViewById(R.id.btn_clear_logs);
         mScrollLogs = findViewById(R.id.scroll_logs);
 
-        // Tab switcher (3 Tabs)
+        // Tab switcher (M3 Segmented Pill Tabs)
         mBtnTabControls.setOnClickListener(v -> switchTab(0));
         mBtnTabSetup.setOnClickListener(v -> switchTab(1));
         mBtnTabLogs.setOnClickListener(v -> switchTab(2));
 
-        // Mode switcher
-        mRgMode.setOnCheckedChangeListener((group, checkedId) -> {
-            boolean isServer = (checkedId == R.id.rb_mode_server);
-            mLayoutClientControls.setVisibility(isServer ? View.GONE : View.VISIBLE);
-            if (mService != null) {
-                mService.setServerMode(isServer);
-            }
-            if (!isServer) {
-                refreshPairedDevices();
-            }
-            AppLogger.i("MainActivity", "Mode switched to: " + (isServer ? "Server (Listening)" : "Client (Connect)"));
-        });
+        // M3 Segmented Mode Switcher
+        mBtnModeServer.setOnClickListener(v -> setServerMode(true));
+        mBtnModeClient.setOnClickListener(v -> setServerMode(false));
 
         // Device adapter for client mode
         mDeviceAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item);
@@ -348,7 +337,8 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         if (!hasBluetoothPermissions()) {
             mHasAutoRequested = true;
             mTvStatus.setText("Waiting for permissions...");
-            mTvStatus.setTextColor(getColor(R.color.status_orange));
+            mTvConnectionDot.setText("○ ");
+            mTvConnectionDot.setTextColor(getColor(R.color.m3_warning));
             requestMissingRuntimePermissions();
             updateActionButtons(false);
         } else {
@@ -356,6 +346,23 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
             refreshPairedDevices();
             updateActionButtons(true);
         }
+    }
+
+    private void setServerMode(boolean isServer) {
+        mIsServerMode = isServer;
+        mLayoutClientControls.setVisibility(isServer ? View.GONE : View.VISIBLE);
+        mBtnModeServer.setBackgroundResource(isServer ? R.drawable.m3_pill_active : R.drawable.m3_pill_inactive);
+        mBtnModeServer.setTextColor(isServer ? 0xFFFFFFFF : getColor(R.color.m3_on_surface_variant));
+        mBtnModeClient.setBackgroundResource(!isServer ? R.drawable.m3_pill_active : R.drawable.m3_pill_inactive);
+        mBtnModeClient.setTextColor(!isServer ? 0xFFFFFFFF : getColor(R.color.m3_on_surface_variant));
+
+        if (mService != null) {
+            mService.setServerMode(isServer);
+        }
+        if (!isServer) {
+            refreshPairedDevices();
+        }
+        AppLogger.i("MainActivity", "Mode switched to: " + (isServer ? "Server (Listening)" : "Client (Connect)"));
     }
 
     private void killAppNow() {
@@ -405,19 +412,14 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         mScrollSetupTab.setVisibility(tabIndex == 1 ? View.VISIBLE : View.GONE);
         mLayoutLogsTab.setVisibility(tabIndex == 2 ? View.VISIBLE : View.GONE);
 
-        int activeColor = getColor(R.color.primary);
-        int inactiveColor = getColor(R.color.card_bg);
-        int textActive = 0xFFFFFFFF;
-        int textInactive = getColor(R.color.text_secondary);
+        mBtnTabControls.setBackgroundResource(tabIndex == 0 ? R.drawable.m3_pill_active : R.drawable.m3_pill_inactive);
+        mBtnTabControls.setTextColor(tabIndex == 0 ? 0xFFFFFFFF : getColor(R.color.m3_on_surface_variant));
 
-        mBtnTabControls.setBackgroundTintList(ColorStateList.valueOf(tabIndex == 0 ? activeColor : inactiveColor));
-        mBtnTabControls.setTextColor(tabIndex == 0 ? textActive : textInactive);
+        mBtnTabSetup.setBackgroundResource(tabIndex == 1 ? R.drawable.m3_pill_active : R.drawable.m3_pill_inactive);
+        mBtnTabSetup.setTextColor(tabIndex == 1 ? 0xFFFFFFFF : getColor(R.color.m3_on_surface_variant));
 
-        mBtnTabSetup.setBackgroundTintList(ColorStateList.valueOf(tabIndex == 1 ? activeColor : inactiveColor));
-        mBtnTabSetup.setTextColor(tabIndex == 1 ? textActive : textInactive);
-
-        mBtnTabLogs.setBackgroundTintList(ColorStateList.valueOf(tabIndex == 2 ? activeColor : inactiveColor));
-        mBtnTabLogs.setTextColor(tabIndex == 2 ? textActive : textInactive);
+        mBtnTabLogs.setBackgroundResource(tabIndex == 2 ? R.drawable.m3_pill_active : R.drawable.m3_pill_inactive);
+        mBtnTabLogs.setTextColor(tabIndex == 2 ? 0xFFFFFFFF : getColor(R.color.m3_on_surface_variant));
 
         if (tabIndex == 2 && mScrollLogs != null) {
             mScrollLogs.post(() -> mScrollLogs.fullScroll(View.FOCUS_DOWN));
@@ -478,15 +480,15 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
 
-        // 4. Checkboxes
-        mCbCtrlShortcuts.setChecked(settings.isCtrlShortcutsEnabled());
-        mCbCtrlShortcuts.setOnCheckedChangeListener((btn, isChecked) -> settings.setCtrlShortcutsEnabled(isChecked));
+        // 4. M3 Switch Toggles
+        mSwCtrlShortcuts.setChecked(settings.isCtrlShortcutsEnabled());
+        mSwCtrlShortcuts.setOnCheckedChangeListener((btn, isChecked) -> settings.setCtrlShortcutsEnabled(isChecked));
 
-        mCbAltTab.setChecked(settings.isAltTabEnabled());
-        mCbAltTab.setOnCheckedChangeListener((btn, isChecked) -> settings.setAltTabEnabled(isChecked));
+        mSwAltTab.setChecked(settings.isAltTabEnabled());
+        mSwAltTab.setOnCheckedChangeListener((btn, isChecked) -> settings.setAltTabEnabled(isChecked));
 
-        mCbIgnorePlaceholder.setChecked(settings.isIgnorePlaceholdersEnabled());
-        mCbIgnorePlaceholder.setOnCheckedChangeListener((btn, isChecked) -> settings.setIgnorePlaceholdersEnabled(isChecked));
+        mSwIgnorePlaceholder.setChecked(settings.isIgnorePlaceholdersEnabled());
+        mSwIgnorePlaceholder.setOnCheckedChangeListener((btn, isChecked) -> settings.setIgnorePlaceholdersEnabled(isChecked));
 
         // 5. IME Buttons
         mBtnOpenImeSettings.setOnClickListener(v -> {
@@ -540,13 +542,13 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
 
             if (isCurrent) {
                 mTvImeStatus.setText("● Active: Pure Key Sending Mode (Bypasses Accessibility)");
-                mTvImeStatus.setTextColor(getColor(R.color.status_green));
+                mTvImeStatus.setTextColor(getColor(R.color.m3_success));
             } else if (isEnabled) {
                 mTvImeStatus.setText("○ Enabled in Settings (Tap Button 2 to Select as Active Keyboard)");
-                mTvImeStatus.setTextColor(getColor(R.color.status_orange));
+                mTvImeStatus.setTextColor(getColor(R.color.m3_warning));
             } else {
                 mTvImeStatus.setText("○ Disabled in Settings (Tap Button 1 to Enable)");
-                mTvImeStatus.setTextColor(getColor(R.color.text_secondary));
+                mTvImeStatus.setTextColor(getColor(R.color.m3_on_surface_variant));
             }
         } catch (Exception e) {
             mTvImeStatus.setText("Status: Ready");
@@ -632,16 +634,22 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
         mTvPermBt.setText(btOk ? "Permission Granted" : "Required for RFCOMM connection");
         mBtnGrantBt.setEnabled(!btOk);
         mBtnGrantBt.setText(btOk ? "Active" : "Grant");
+        mBtnGrantBt.setBackgroundResource(btOk ? R.drawable.m3_btn_tonal : R.drawable.m3_btn_filled_primary);
+        mBtnGrantBt.setTextColor(btOk ? getColor(R.color.m3_on_secondary_container) : 0xFFFFFFFF);
 
         boolean overlayOk = hasOverlayPermission();
         mTvPermOverlay.setText(overlayOk ? "Permission Granted" : "Draws mouse cursor on screen");
         mBtnGrantOverlay.setEnabled(!overlayOk);
         mBtnGrantOverlay.setText(overlayOk ? "Active" : "Grant");
+        mBtnGrantOverlay.setBackgroundResource(overlayOk ? R.drawable.m3_btn_tonal : R.drawable.m3_btn_filled_primary);
+        mBtnGrantOverlay.setTextColor(overlayOk ? getColor(R.color.m3_on_secondary_container) : 0xFFFFFFFF);
 
         boolean accessOk = (InputAccessibilityService.getInstance() != null);
         mTvPermAccess.setText(accessOk ? "Service Active" : "Injects taps, clicks, and keystrokes");
         mBtnGrantAccess.setEnabled(!accessOk);
-        mBtnGrantAccess.setText(accessOk ? "Active" : "Enable");
+        mBtnGrantAccess.setText(accessOk ? "Active" : "Grant");
+        mBtnGrantAccess.setBackgroundResource(accessOk ? R.drawable.m3_btn_tonal : R.drawable.m3_btn_filled_primary);
+        mBtnGrantAccess.setTextColor(accessOk ? getColor(R.color.m3_on_secondary_container) : 0xFFFFFFFF);
     }
 
     private boolean hasBluetoothPermissions() {
@@ -772,21 +780,28 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     public void onStatusChanged(String status, boolean isConnected) {
         mIsConnected = isConnected;
         mTvStatus.setText(status);
-        mTvStatus.setTextColor(getColor(isConnected ? R.color.status_green : R.color.primary));
+
+        if (isConnected) {
+            mTvConnectionDot.setText("● ");
+            mTvConnectionDot.setTextColor(getColor(R.color.m3_success));
+            mBtnConnectClient.setText("Disconnect");
+            mBtnConnectClient.setBackgroundResource(R.drawable.m3_btn_filled_error);
+        } else if (status.contains("Listening") || status.contains("Connecting")) {
+            mTvConnectionDot.setText("● ");
+            mTvConnectionDot.setTextColor(getColor(R.color.m3_primary));
+            mBtnConnectClient.setText("Connect to PC");
+            mBtnConnectClient.setBackgroundResource(R.drawable.m3_btn_filled_success);
+        } else {
+            mTvConnectionDot.setText("○ ");
+            mTvConnectionDot.setTextColor(getColor(R.color.m3_outline));
+            mBtnConnectClient.setText("Connect to PC");
+            mBtnConnectClient.setBackgroundResource(R.drawable.m3_btn_filled_success);
+        }
 
         if (status.equalsIgnoreCase("Stopped") || status.equalsIgnoreCase("Service Stopped")) {
             updateActionButtons(false);
         } else if (isConnected || status.contains("Listening") || status.contains("Connected")) {
             updateActionButtons(true);
-        }
-
-        // Update Client Mode Connect button text
-        if (isConnected) {
-            mBtnConnectClient.setText("Disconnect");
-            mBtnConnectClient.setBackgroundTintList(getColorStateList(R.color.status_red));
-        } else {
-            mBtnConnectClient.setText("Connect to PC");
-            mBtnConnectClient.setBackgroundTintList(getColorStateList(R.color.status_green));
         }
     }
 
