@@ -39,6 +39,6 @@ The project and all apps are now officially named **Lapdroid** (Laptop + Android
 | :--- | :--- | :--- | :--- |
 | **`Lapdroid-Setup.exe`** | Windows Setup Installer | ~516 KB | `94e4120d7ab02356493bc54ef66b2fddeb7fb6bf980eec315f56a70aab739aa6` |
 | **`Lapdroid.exe`** | Standalone Windows Executable | ~1.1 MB | `6c40137cc9a947c7ef3ba6921b02b8b69ae05e604daab20376f77bd2962e45f1` |
-| **`Lapdroid.apk`** | Signed Android Application (v2/v3) | ~29 KB | `fa83bd2587f134bb59527a590f5c770da25a68b657f2816d78c8de50d3018eff` |
-| **`Lapdroid-v0.2.zip`** | All-in-one Release Archive | ~813 KB | `7d7c5b627e11d47c0fa3ba972e6a8b6efc1422b5154ca9b3a878715376453967` |
+| **`Lapdroid.apk`** | Signed Android Application (v2/v3) | ~29 KB | `b84fce112e88c71d4c7af42f40894a3557e59be5262094a73f605e9f9f8cc14b` |
+| **`Lapdroid-v0.2.zip`** | All-in-one Release Archive | ~813 KB | `ec009efb9f50fa6ea8858068b909f09eb8fbbe11bc5673815a251d506a4dd29f` |
 | **`SHA256SUMS.txt`** | Integrity Hashes | ~1 KB | Verification checksums for all release binaries |

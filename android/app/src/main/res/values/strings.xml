@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Lapdroid</string>
+    <string name="accessibility_service_label">Lapdroid</string>
     <string name="accessibility_service_description">Lapdroid lets you control your phone using your laptop keyboard and touchpad over Bluetooth without Wi-Fi</string>
+    <string name="accessibility_service_summary">Controls phone keyboard and touchpad over Bluetooth</string>
     <string name="status_disconnected">Disconnected</string>
     <string name="status_listening">Listening for Windows PC...</string>
     <string name="status_connected">Connected to Windows PC</string>
