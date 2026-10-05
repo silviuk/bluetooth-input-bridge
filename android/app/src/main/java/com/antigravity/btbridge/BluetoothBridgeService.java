@@ -52,7 +52,7 @@ public class BluetoothBridgeService extends Service {
 
     public interface StatusListener {
         void onStatusChanged(String status, boolean isConnected);
-        void onInputReceived(String info);
+        void onKeyInputReceived(int androidKeycode, char unicodeChar);
     }
 
     public class LocalBinder extends Binder {
@@ -482,8 +482,10 @@ public class BluetoothBridgeService extends Service {
                             }
                         }
 
-                        if (mStatusListener != null && unicodeChar != 0) {
-                            mMainHandler.post(() -> mStatusListener.onInputReceived("Key: " + unicodeChar));
+                        if (mStatusListener != null) {
+                            final int finalKc = androidKc;
+                            final char finalCh = unicodeChar;
+                            mMainHandler.post(() -> mStatusListener.onKeyInputReceived(finalKc, finalCh));
                         }
                     }
                 }

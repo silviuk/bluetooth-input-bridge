@@ -507,9 +507,39 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     }
 
     @Override
-    public void onInputReceived(String info) {
+    public void onKeyInputReceived(int androidKeycode, char unicodeChar) {
         if (mEtTestInput != null && mEtTestInput.hasFocus()) {
-            mEtTestInput.append(info.replace("Key: ", ""));
+            int start = mEtTestInput.getSelectionStart();
+            int end = mEtTestInput.getSelectionEnd();
+            android.text.Editable editable = mEtTestInput.getText();
+            if (editable == null) return;
+
+            if (androidKeycode == 67) { // Backspace (KEYCODE_DEL)
+                if (start != end) {
+                    editable.delete(Math.min(start, end), Math.max(start, end));
+                } else if (start > 0) {
+                    editable.delete(start - 1, start);
+                }
+            } else if (androidKeycode == 112) { // Forward Delete (KEYCODE_FORWARD_DEL)
+                if (start != end) {
+                    editable.delete(Math.min(start, end), Math.max(start, end));
+                } else if (start < editable.length()) {
+                    editable.delete(start, start + 1);
+                }
+            } else if (androidKeycode == 66) { // Enter (KEYCODE_ENTER)
+                if (start != end) {
+                    editable.replace(Math.min(start, end), Math.max(start, end), "\n");
+                } else {
+                    editable.insert(start, "\n");
+                }
+            } else if (unicodeChar != 0 && !Character.isISOControl(unicodeChar)) {
+                String str = String.valueOf(unicodeChar);
+                if (start != end) {
+                    editable.replace(Math.min(start, end), Math.max(start, end), str);
+                } else {
+                    editable.insert(start, str);
+                }
+            }
         }
     }
 
