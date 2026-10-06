@@ -57,13 +57,77 @@ public class InputAccessibilityService extends AccessibilityService {
     public void dispatchClick(float x, float y) {
         Path clickPath = new Path();
         clickPath.moveTo(x, y);
-        clickPath.lineTo(x, y);
+        clickPath.lineTo(x, y + 1.0f); // Non-zero length required by Android GestureDescription
 
         GestureDescription.StrokeDescription stroke =
-                new GestureDescription.StrokeDescription(clickPath, 0, 40);
+                new GestureDescription.StrokeDescription(clickPath, 0, 50);
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(stroke);
-        dispatchGesture(builder.build(), null, null);
+
+        boolean dispatched = dispatchGesture(builder.build(), new GestureResultCallback() {
+            @Override
+            public void onCompleted(GestureDescription gestureDescription) {
+                AppLogger.d("Accessibility", "dispatchClick completed at (" + x + ", " + y + ")");
+            }
+
+            @Override
+            public void onCancelled(GestureDescription gestureDescription) {
+                AppLogger.w("Accessibility", "dispatchClick cancelled at (" + x + ", " + y + "), attempting node click fallback");
+                clickNodeAt(x, y);
+            }
+        }, null);
+
+        if (!dispatched) {
+            AppLogger.w("Accessibility", "dispatchGesture returned false at (" + x + ", " + y + "), attempting node click fallback");
+            clickNodeAt(x, y);
+        }
+    }
+
+    public boolean clickNodeAt(float x, float y) {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) return false;
+        try {
+            AccessibilityNodeInfo target = findClickableNodeAt(root, (int) x, (int) y);
+            if (target != null) {
+                try {
+                    boolean ok = target.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                    AppLogger.d("Accessibility", "clickNodeAt (" + x + ", " + y + ") ok=" + ok);
+                    return ok;
+                } finally {
+                    target.recycle();
+                }
+            }
+        } finally {
+            root.recycle();
+        }
+        return false;
+    }
+
+    private AccessibilityNodeInfo findClickableNodeAt(AccessibilityNodeInfo node, int x, int y) {
+        if (node == null) return null;
+        android.graphics.Rect bounds = new android.graphics.Rect();
+        node.getBoundsInScreen(bounds);
+        if (!bounds.contains(x, y)) {
+            return null;
+        }
+
+        // Search children in reverse z-order (topmost child first)
+        int count = node.getChildCount();
+        for (int i = count - 1; i >= 0; i--) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child != null) {
+                AccessibilityNodeInfo hit = findClickableNodeAt(child, x, y);
+                if (hit != null) {
+                    return hit;
+                }
+                child.recycle();
+            }
+        }
+
+        if (node.isClickable()) {
+            return AccessibilityNodeInfo.obtain(node);
+        }
+        return null;
     }
 
     public void dispatchScroll(float x, float y, int deltaY) {
@@ -76,7 +140,16 @@ public class InputAccessibilityService extends AccessibilityService {
                 new GestureDescription.StrokeDescription(scrollPath, 0, 150);
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(stroke);
-        dispatchGesture(builder.build(), null, null);
+        dispatchGesture(builder.build(), new GestureResultCallback() {
+            @Override
+            public void onCompleted(GestureDescription gestureDescription) {
+                AppLogger.d("Accessibility", "Scroll gesture completed");
+            }
+            @Override
+            public void onCancelled(GestureDescription gestureDescription) {
+                AppLogger.w("Accessibility", "Scroll gesture cancelled");
+            }
+        }, null);
     }
 
     public void dispatchSwipe(float fromX, float fromY, float toX, float toY, long durationMs) {
@@ -85,10 +158,19 @@ public class InputAccessibilityService extends AccessibilityService {
         path.lineTo(toX, toY);
 
         GestureDescription.StrokeDescription stroke =
-                new GestureDescription.StrokeDescription(path, 0, Math.max(50, durationMs));
+                new GestureDescription.StrokeDescription(path, 0, Math.max(80, durationMs));
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(stroke);
-        dispatchGesture(builder.build(), null, null);
+        dispatchGesture(builder.build(), new GestureResultCallback() {
+            @Override
+            public void onCompleted(GestureDescription gestureDescription) {
+                AppLogger.d("Accessibility", "Swipe gesture completed");
+            }
+            @Override
+            public void onCancelled(GestureDescription gestureDescription) {
+                AppLogger.w("Accessibility", "Swipe gesture cancelled");
+            }
+        }, null);
     }
 
     public void adjustVolume(int direction) {
@@ -119,16 +201,20 @@ public class InputAccessibilityService extends AccessibilityService {
     public void performAction(byte action) {
         switch (action) {
             case Protocol.ACT_BACK:
-                performGlobalAction(GLOBAL_ACTION_BACK);
+                boolean backOk = performGlobalAction(GLOBAL_ACTION_BACK);
+                AppLogger.i("Accessibility", "Executed GLOBAL_ACTION_BACK: ok=" + backOk);
                 break;
             case Protocol.ACT_HOME:
-                performGlobalAction(GLOBAL_ACTION_HOME);
+                boolean homeOk = performGlobalAction(GLOBAL_ACTION_HOME);
+                AppLogger.i("Accessibility", "Executed GLOBAL_ACTION_HOME: ok=" + homeOk);
                 break;
             case Protocol.ACT_RECENTS:
-                performGlobalAction(GLOBAL_ACTION_RECENTS);
+                boolean recOk = performGlobalAction(GLOBAL_ACTION_RECENTS);
+                AppLogger.i("Accessibility", "Executed GLOBAL_ACTION_RECENTS: ok=" + recOk);
                 break;
             case Protocol.ACT_NOTIFICATIONS:
-                performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS);
+                boolean notifOk = performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS);
+                AppLogger.i("Accessibility", "Executed GLOBAL_ACTION_NOTIFICATIONS: ok=" + notifOk);
                 break;
             case Protocol.ACT_LOCK_SCREEN:
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -929,14 +1015,14 @@ public class InputAccessibilityService extends AccessibilityService {
             float cy = screenH * 0.5f;
             if (!isShift) {
                 // Cycle forward (swipe left to bring next card into center)
-                float startX = screenW * 0.80f;
-                float endX   = screenW * 0.20f;
-                dispatchSwipe(startX, cy, endX, cy, 140);
+                float startX = screenW * 0.75f;
+                float endX   = screenW * 0.25f;
+                dispatchSwipe(startX, cy, endX, cy, 200);
             } else {
                 // Cycle backward (swipe right to bring previous card into center)
-                float startX = screenW * 0.20f;
-                float endX   = screenW * 0.80f;
-                dispatchSwipe(startX, cy, endX, cy, 140);
+                float startX = screenW * 0.25f;
+                float endX   = screenW * 0.75f;
+                dispatchSwipe(startX, cy, endX, cy, 200);
             }
         }
     }
@@ -950,24 +1036,15 @@ public class InputAccessibilityService extends AccessibilityService {
 
         AppLogger.i("AltTab", "Alt released: count=" + count);
 
-        if (count == 1) {
-            // "press once, switch to previous app"
-            // Wait brief moment for Recents window to settle then switch
-            mMainHandler.postDelayed(() -> {
-                boolean clicked = clickCenteredRecentApp();
-                if (!clicked) {
-                    performGlobalAction(GLOBAL_ACTION_RECENTS);
-                }
-                AppLogger.i("AltTab", "Committed quick switch to previous app");
-            }, 180);
-        } else {
-            // "press twice cycle to next one, alt-shift-tab cycle to previous"
-            // Commit the selected app by clicking the centered app card
-            mMainHandler.postDelayed(() -> {
-                clickCenteredRecentApp();
-                AppLogger.i("AltTab", "Committed cycled app switch to active task");
-            }, 160);
-        }
+        // Commit the selected app by clicking the centered app card
+        // Wait 220ms for the Overview animation or last swipe to settle
+        mMainHandler.postDelayed(() -> {
+            boolean clicked = clickCenteredRecentApp();
+            if (!clicked && count == 1) {
+                performGlobalAction(GLOBAL_ACTION_RECENTS);
+            }
+            AppLogger.i("AltTab", "Committed app switch to active task (count=" + count + ")");
+        }, 220);
     }
 
     private boolean clickCenteredRecentApp() {
@@ -976,8 +1053,18 @@ public class InputAccessibilityService extends AccessibilityService {
         float cx = screenW * 0.5f;
         float cy = screenH * 0.5f;
 
-        // In Android Overview, clicking the center of the screen activates the centered task card
+        AppLogger.i("AltTab", "clickCenteredRecentApp at (" + cx + ", " + cy + ")");
+
+        // 1. Accessibility node click at center
+        boolean nodeClicked = clickNodeAt(cx, cy);
+        if (nodeClicked) {
+            AppLogger.i("AltTab", "Activated centered app via node click");
+            return true;
+        }
+
+        // 2. Hardware touch gesture tap at center
         dispatchClick(cx, cy);
+        AppLogger.i("AltTab", "Dispatched tap gesture at screen center");
         return true;
     }
 }

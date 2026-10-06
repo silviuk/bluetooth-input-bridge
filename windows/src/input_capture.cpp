@@ -115,7 +115,7 @@ InputCapture::InputCapture(BluetoothManager* btManager)
     , m_keyboardHook(NULL)
     , m_mouseHook(NULL)
     , m_capturing(false)
-    , m_sensitivity(1.0f)
+    , m_sensitivity(3.0f)
     , m_recentering(false)
 {
     g_currentInputCapture = this;

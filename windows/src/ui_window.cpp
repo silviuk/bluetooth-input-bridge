@@ -525,7 +525,7 @@ void MainWindow::CreateControls() {
     c2Y += 42;
 
     // Sensitivity slider
-    m_hLabelSensitivity = CreateWindowExW(0, L"STATIC", L"Touchpad Sensitivity: 1.0x",
+    m_hLabelSensitivity = CreateWindowExW(0, L"STATIC", L"Touchpad Sensitivity: 3.0x",
         WS_CHILD | WS_VISIBLE | SS_LEFT,
         padX + 14, c2Y + 4, 190, 18, m_hWnd, (HMENU)IDC_LABEL_SENSITIVITY, m_hInstance, NULL);
     SendMessageW(m_hLabelSensitivity, WM_SETFONT, (WPARAM)m_hFontNormal, TRUE);
@@ -533,8 +533,8 @@ void MainWindow::CreateControls() {
     m_hSliderSensitivity = CreateWindowExW(0, TRACKBAR_CLASSW, L"",
         WS_CHILD | WS_VISIBLE | TBS_AUTOTICKS | TBS_ENABLESELRANGE,
         padX + 210, c2Y, cardW - 224, 26, m_hWnd, (HMENU)IDC_SLIDER_SENSITIVITY, m_hInstance, NULL);
-    SendMessageW(m_hSliderSensitivity, TBM_SETRANGE, TRUE, MAKELPARAM(5, 30));
-    SendMessageW(m_hSliderSensitivity, TBM_SETPOS, TRUE, 10);
+    SendMessageW(m_hSliderSensitivity, TBM_SETRANGE, TRUE, MAKELPARAM(10, 50));
+    SendMessageW(m_hSliderSensitivity, TBM_SETPOS, TRUE, 30);
     m_controlsTabHwnds.push_back(m_hLabelSensitivity);
     m_controlsTabHwnds.push_back(m_hSliderSensitivity);
     c2Y += 30;

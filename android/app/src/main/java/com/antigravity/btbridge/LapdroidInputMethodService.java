@@ -93,6 +93,11 @@ public class LapdroidInputMethodService extends InputMethodService {
             return false;
         }
 
+        // Windows / Meta keys, Back/Esc, Home, Recents: Do not consume in IME, let system navigation handle it
+        if (androidKeycode == 3 || androidKeycode == 117 || androidKeycode == 118 || androidKeycode == 4 || androidKeycode == 111 || androidKeycode == 187) {
+            return false;
+        }
+
         // 4. Enter
         if (androidKeycode == 66) { // KEYCODE_ENTER
             ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0, metaState));
