@@ -570,6 +570,9 @@ public class BluetoothBridgeService extends Service {
                     AppLogger.d("BT-Bridge", "Mouse button: btn=" + button + " state=" + state + " at (" + cx + "," + cy + ")");
 
                     if (state == Protocol.STATE_DOWN) {
+                        if (accessService != null && accessService.isAltTabActive()) {
+                            accessService.cancelAltTab();
+                        }
                         if (button == Protocol.BTN_LEFT) {
                             if (accessService != null) {
                                 accessService.dispatchClick(cx, cy);
@@ -627,6 +630,31 @@ public class BluetoothBridgeService extends Service {
                     }
 
                     if (state == Protocol.STATE_DOWN) {
+                        // Alt+Tab interactive navigation while carousel is open
+                        if (accessService != null && accessService.isAltTabActive()) {
+                            // Arrow Right: cycle forward
+                            if (androidKc == 22 || winVk == 39) {
+                                accessService.handleAltTabNav(true);
+                                return;
+                            }
+                            // Arrow Left: cycle backward
+                            if (androidKc == 21 || winVk == 37) {
+                                accessService.handleAltTabNav(false);
+                                return;
+                            }
+                            // Enter or Space: commit selection immediately
+                            if (androidKc == 66 || androidKc == 62 || winVk == 13 || winVk == 32) {
+                                accessService.commitAltTab();
+                                return;
+                            }
+                            // Escape: dismiss Alt+Tab and go Back
+                            if (androidKc == 111 || winVk == 27) {
+                                accessService.cancelAltTab();
+                                accessService.performAction(Protocol.ACT_BACK);
+                                return;
+                            }
+                        }
+
                         // 1. Alt + Tab (Multi-app cycling switcher)
                         if (settings.isAltTabEnabled() && (modifiers & Protocol.MOD_ALT) != 0 && (androidKc == 61 || winVk == 9)) {
                             if (accessService != null) {

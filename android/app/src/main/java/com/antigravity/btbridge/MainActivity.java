@@ -824,7 +824,8 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
 
     @Override
     public void onKeyInputReceived(int androidKeycode, char unicodeChar) {
-        if (mEtTestInput != null && mEtTestInput.hasFocus()) {
+        // Only fallback to manual text mutation if Accessibility service is not active
+        if (InputAccessibilityService.getInstance() == null && mEtTestInput != null && mEtTestInput.hasFocus()) {
             int start = mEtTestInput.getSelectionStart();
             int end = mEtTestInput.getSelectionEnd();
             android.text.Editable editable = mEtTestInput.getText();

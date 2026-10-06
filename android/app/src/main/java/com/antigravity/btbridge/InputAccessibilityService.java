@@ -2,6 +2,8 @@ package com.antigravity.btbridge;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Path;
 import android.graphics.Rect;
@@ -27,6 +29,8 @@ public class InputAccessibilityService extends AccessibilityService {
     // Fast typing buffer cache (eliminates IPC lag, dropped chars, and WhatsApp placeholder race conditions)
     private String mCachedText = null;
     private int mCachedCursor = -1;
+    private int mCachedSelStart = -1;
+    private int mCachedSelEnd = -1;
     private int mCachedNodeWindowId = -1;
     private long mLastKeyTypeTime = 0;
 
@@ -82,6 +86,7 @@ public class InputAccessibilityService extends AccessibilityService {
     }
 
     public void dispatchClick(float x, float y) {
+        cancelAltTab();
         Path clickPath = new Path();
         clickPath.moveTo(x, y);
         clickPath.lineTo(x, y + 1.0f); // Non-zero length required by Android GestureDescription
@@ -351,8 +356,8 @@ public class InputAccessibilityService extends AccessibilityService {
 
             if (useCache) {
                 current = mCachedText;
-                selStart = (mCachedCursor >= 0 && mCachedCursor <= mCachedText.length()) ? mCachedCursor : mCachedText.length();
-                selEnd = selStart;
+                selStart = (mCachedSelStart >= 0 && mCachedSelStart <= mCachedText.length()) ? mCachedSelStart : mCachedText.length();
+                selEnd = (mCachedSelEnd >= 0 && mCachedSelEnd <= mCachedText.length()) ? mCachedSelEnd : mCachedText.length();
             } else {
                 current = focused.getText();
                 CharSequence hintText = focused.getHintText();
@@ -399,43 +404,126 @@ public class InputAccessibilityService extends AccessibilityService {
             }
             int len = (current != null) ? current.length() : 0;
 
-            // ================= 1. WINDOWS CTRL SHORTCUTS =================
+            // ================= 1. CTRL + SHIFT COMBINATIONS =================
+            if (isCtrl && isShift && settings.isCtrlShortcutsEnabled()) {
+                // Ctrl + Shift + Left Arrow (Select Word Backward)
+                if (androidKeycode == 21 && current != null) {
+                    int prevWord = findPrevWordBoundary(current, selStart);
+                    setSelectionRange(focused, prevWord, selEnd);
+                    return;
+                }
+                // Ctrl + Shift + Right Arrow (Select Word Forward)
+                if (androidKeycode == 22 && current != null) {
+                    int nextWord = findNextWordBoundary(current, selEnd);
+                    setSelectionRange(focused, selStart, nextWord);
+                    return;
+                }
+                // Ctrl + Shift + Home (Select to Start of Document)
+                if (androidKeycode == 122) {
+                    setSelectionRange(focused, 0, selEnd);
+                    return;
+                }
+                // Ctrl + Shift + End (Select to End of Document)
+                if (androidKeycode == 123) {
+                    setSelectionRange(focused, selStart, len);
+                    return;
+                }
+            }
+
+            // ================= 2. WINDOWS CTRL SHORTCUTS =================
             if (isCtrl && settings.isCtrlShortcutsEnabled()) {
                 // Ctrl + A (Select All)
                 if (androidKeycode == 29) { // KEYCODE_A
                     setSelectionRange(focused, 0, len);
-                    focused.performAction(AccessibilityNodeInfo.ACTION_SELECT);
                     AppLogger.d("Accessibility", "Executed Ctrl+A (Select All)");
                     return;
                 }
-                // Ctrl + C (Copy)
-                if (androidKeycode == 31) { // KEYCODE_C
+                // Ctrl + C (Copy) or Ctrl + Insert
+                if (androidKeycode == 31 || androidKeycode == 124) { // KEYCODE_C or KEYCODE_INSERT
+                    int min = Math.min(selStart, selEnd);
+                    int max = Math.max(selStart, selEnd);
+                    String textToCopy = "";
+                    if (min != max && current != null) {
+                        textToCopy = current.subSequence(min, max).toString();
+                    } else if (current != null) {
+                        textToCopy = current.toString();
+                    }
+                    if (!textToCopy.isEmpty()) {
+                        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        if (cm != null) {
+                            cm.setPrimaryClip(ClipData.newPlainText("text", textToCopy));
+                        }
+                    }
                     focused.performAction(AccessibilityNodeInfo.ACTION_COPY);
                     AppLogger.d("Accessibility", "Executed Ctrl+C (Copy)");
                     return;
                 }
-                // Ctrl + V (Paste)
-                if (androidKeycode == 50) { // KEYCODE_V
-                    focused.performAction(AccessibilityNodeInfo.ACTION_PASTE);
-                    AppLogger.d("Accessibility", "Executed Ctrl+V (Paste)");
-                    return;
-                }
                 // Ctrl + X (Cut)
                 if (androidKeycode == 52) { // KEYCODE_X
-                    focused.performAction(AccessibilityNodeInfo.ACTION_CUT);
-                    AppLogger.d("Accessibility", "Executed Ctrl+X (Cut)");
+                    int min = Math.min(selStart, selEnd);
+                    int max = Math.max(selStart, selEnd);
+                    if (min != max && current != null) {
+                        String textToCut = current.subSequence(min, max).toString();
+                        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        if (cm != null) {
+                            cm.setPrimaryClip(ClipData.newPlainText("text", textToCut));
+                        }
+                        boolean cutOk = focused.performAction(AccessibilityNodeInfo.ACTION_CUT);
+                        if (!cutOk) {
+                            StringBuilder sb = new StringBuilder(current);
+                            sb.delete(min, max);
+                            applyTextAndSelection(focused, sb.toString(), min);
+                        } else {
+                            mCachedText = null;
+                        }
+                        AppLogger.d("Accessibility", "Executed Ctrl+X (Cut)");
+                    }
+                    return;
+                }
+                // Ctrl + V (Paste)
+                if (androidKeycode == 50) { // KEYCODE_V
+                    ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    String clipText = "";
+                    if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip().getItemCount() > 0) {
+                        CharSequence text = cm.getPrimaryClip().getItemAt(0).getText();
+                        if (text != null) clipText = text.toString();
+                    }
+                    boolean pasteOk = focused.performAction(AccessibilityNodeInfo.ACTION_PASTE);
+                    if (!pasteOk && !clipText.isEmpty()) {
+                        StringBuilder sb = new StringBuilder(current != null ? current : "");
+                        int min = Math.min(selStart, selEnd);
+                        int max = Math.max(selStart, selEnd);
+                        sb.replace(min, max, clipText);
+                        int newCursor = min + clipText.length();
+                        applyTextAndSelection(focused, sb.toString(), newCursor);
+                    } else {
+                        mCachedText = null;
+                    }
+                    AppLogger.d("Accessibility", "Executed Ctrl+V (Paste)");
                     return;
                 }
                 // Ctrl + Z (Undo)
                 if (androidKeycode == 54) { // KEYCODE_Z
                     focused.performAction(android.R.id.undo);
+                    mCachedText = null;
                     AppLogger.d("Accessibility", "Executed Ctrl+Z (Undo)");
                     return;
                 }
                 // Ctrl + Y (Redo)
                 if (androidKeycode == 53) { // KEYCODE_Y
                     focused.performAction(android.R.id.redo);
+                    mCachedText = null;
                     AppLogger.d("Accessibility", "Executed Ctrl+Y (Redo)");
+                    return;
+                }
+                // Ctrl + Home (Jump to Start of Document)
+                if (androidKeycode == 122) {
+                    setCursorPosition(focused, 0);
+                    return;
+                }
+                // Ctrl + End (Jump to End of Document)
+                if (androidKeycode == 123) {
+                    setCursorPosition(focused, len);
                     return;
                 }
                 // Ctrl + Backspace (Delete Word Backward)
@@ -470,12 +558,47 @@ public class InputAccessibilityService extends AccessibilityService {
                 }
             }
 
-            // ================= 2. SHIFT + NAVIGATION (TEXT SELECTION) =================
+            // ================= 3. SHIFT + NAVIGATION (TEXT SELECTION) =================
             if (isShift) {
+                // Shift + Delete (Windows Cut shortcut)
+                if (androidKeycode == 112 && selStart != selEnd && current != null) {
+                    int min = Math.min(selStart, selEnd);
+                    int max = Math.max(selStart, selEnd);
+                    String textToCut = current.subSequence(min, max).toString();
+                    ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (cm != null) {
+                        cm.setPrimaryClip(ClipData.newPlainText("text", textToCut));
+                    }
+                    boolean cutOk = focused.performAction(AccessibilityNodeInfo.ACTION_CUT);
+                    if (!cutOk) {
+                        StringBuilder sb = new StringBuilder(current);
+                        sb.delete(min, max);
+                        applyTextAndSelection(focused, sb.toString(), min);
+                    }
+                    return;
+                }
+                // Shift + Insert (Windows Paste shortcut)
+                if (androidKeycode == 124) {
+                    ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    String clipText = "";
+                    if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip().getItemCount() > 0) {
+                        CharSequence text = cm.getPrimaryClip().getItemAt(0).getText();
+                        if (text != null) clipText = text.toString();
+                    }
+                    if (!clipText.isEmpty()) {
+                        StringBuilder sb = new StringBuilder(current != null ? current : "");
+                        int min = Math.min(selStart, selEnd);
+                        int max = Math.max(selStart, selEnd);
+                        sb.replace(min, max, clipText);
+                        int newCursor = min + clipText.length();
+                        applyTextAndSelection(focused, sb.toString(), newCursor);
+                    }
+                    return;
+                }
                 // Shift + Left Arrow
                 if (androidKeycode == 21) {
-                    int newEnd = Math.max(0, selEnd - 1);
-                    setSelectionRange(focused, selStart, newEnd);
+                    int newStart = Math.max(0, selStart - 1);
+                    setSelectionRange(focused, newStart, selEnd);
                     return;
                 }
                 // Shift + Right Arrow
@@ -484,19 +607,23 @@ public class InputAccessibilityService extends AccessibilityService {
                     setSelectionRange(focused, selStart, newEnd);
                     return;
                 }
-                // Shift + Home
+                // Shift + Home (Select to Start of Line)
                 if (androidKeycode == 122) {
-                    setSelectionRange(focused, selStart, 0);
+                    int lineStart = (current != null) ? current.toString().lastIndexOf('\n', Math.max(0, selStart - 1)) + 1 : 0;
+                    if (lineStart < 0) lineStart = 0;
+                    setSelectionRange(focused, lineStart, selEnd);
                     return;
                 }
-                // Shift + End
+                // Shift + End (Select to End of Line)
                 if (androidKeycode == 123) {
-                    setSelectionRange(focused, selStart, len);
+                    int lineEnd = (current != null) ? current.toString().indexOf('\n', selEnd) : len;
+                    if (lineEnd < 0) lineEnd = len;
+                    setSelectionRange(focused, selStart, lineEnd);
                     return;
                 }
             }
 
-            // ================= 3. BACKSPACE (KEYCODE_DEL = 67) =================
+            // ================= 4. BACKSPACE (KEYCODE_DEL = 67) =================
             if (androidKeycode == 67) {
                 if (current != null && len > 0) {
                     StringBuilder sb = new StringBuilder(current);
@@ -520,7 +647,7 @@ public class InputAccessibilityService extends AccessibilityService {
                 return;
             }
 
-            // ================= 4. DELETE (FORWARD DELETE = 112) =================
+            // ================= 5. DELETE (FORWARD DELETE = 112) =================
             if (androidKeycode == 112) {
                 if (current != null && len > 0) {
                     StringBuilder sb = new StringBuilder(current);
@@ -544,9 +671,18 @@ public class InputAccessibilityService extends AccessibilityService {
                 return;
             }
 
-            // ================= 5. ENTER (KEYCODE_ENTER = 66) =================
+            // ================= 6. ENTER (KEYCODE_ENTER = 66) =================
             if (androidKeycode == 66) {
                 int enterMode = settings.getEnterMode();
+                CharSequence pkg = focused.getPackageName();
+                String pkgStr = (pkg != null) ? pkg.toString().toLowerCase() : "";
+                boolean isKeep = pkgStr.contains("keep");
+                CharSequence hint = focused.getHintText();
+                String hintStr = (hint != null) ? hint.toString().toLowerCase() : "";
+                String idStr = (focused.getViewIdResourceName() != null) ? focused.getViewIdResourceName().toLowerCase() : "";
+                boolean isSearchField = hintStr.contains("search") || hintStr.contains("find") ||
+                                        idStr.contains("search") || idStr.contains("query") || idStr.contains("url") || idStr.contains("address");
+
                 if (isShift) {
                     if (enterMode == BridgeSettings.ENTER_MODE_ACTION) {
                         insertNewlineOnNode(focused, current, selStart, selEnd);
@@ -558,7 +694,32 @@ public class InputAccessibilityService extends AccessibilityService {
                     }
                 }
 
-                if (enterMode == BridgeSettings.ENTER_MODE_NEWLINE || (enterMode == BridgeSettings.ENTER_MODE_SMART && focused.isMultiLine())) {
+                if (isKeep) {
+                    // Google Keep note editor handling
+                    if (idStr.contains("title")) {
+                        boolean advanced = focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
+                        if (!advanced) {
+                            AccessibilityNodeInfo next = focused.focusSearch(View.FOCUS_DOWN);
+                            if (next != null) {
+                                next.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
+                                next.recycle();
+                            }
+                        }
+                    } else if (idStr.contains("description") || idStr.contains("list") || idStr.contains("item")) {
+                        boolean ok = focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
+                        if (!ok) {
+                            insertNewlineOnNode(focused, current, selStart, selEnd);
+                        }
+                    } else {
+                        insertNewlineOnNode(focused, current, selStart, selEnd);
+                    }
+                    AppLogger.d("Accessibility", "Executed Enter in Google Keep");
+                    return;
+                }
+
+                if (enterMode == BridgeSettings.ENTER_MODE_NEWLINE ||
+                    (enterMode == BridgeSettings.ENTER_MODE_SMART && !isSearchField) ||
+                    focused.isMultiLine()) {
                     insertNewlineOnNode(focused, current, selStart, selEnd);
                     AppLogger.d("Accessibility", "Executed Enter newline");
                 } else {
@@ -567,7 +728,7 @@ public class InputAccessibilityService extends AccessibilityService {
                         if (!clicked) {
                             boolean imeEntered = focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
                             if (!imeEntered) {
-                                focused.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                                insertNewlineOnNode(focused, current, selStart, selEnd);
                             }
                         }
                     }
@@ -576,7 +737,7 @@ public class InputAccessibilityService extends AccessibilityService {
                 return;
             }
 
-            // ================= 6. TAB (KEYCODE_TAB = 61) =================
+            // ================= 7. TAB (KEYCODE_TAB = 61) =================
             if (androidKeycode == 61) {
                 int tabMode = settings.getTabMode();
                 if (tabMode == BridgeSettings.TAB_MODE_FOCUS) {
@@ -595,7 +756,7 @@ public class InputAccessibilityService extends AccessibilityService {
                 return;
             }
 
-            // ================= 7. ARROW NAVIGATION =================
+            // ================= 8. ARROW NAVIGATION =================
             // Arrow Left (21)
             if (androidKeycode == 21) {
                 int newCursor = Math.max(0, selStart - 1);
@@ -630,13 +791,17 @@ public class InputAccessibilityService extends AccessibilityService {
 
             // Home (122)
             if (androidKeycode == 122) {
-                setCursorPosition(focused, 0);
+                int lineStart = (current != null) ? current.toString().lastIndexOf('\n', Math.max(0, selStart - 1)) + 1 : 0;
+                if (lineStart < 0) lineStart = 0;
+                setCursorPosition(focused, lineStart);
                 return;
             }
 
             // End (123)
             if (androidKeycode == 123) {
-                setCursorPosition(focused, len);
+                int lineEnd = (current != null) ? current.toString().indexOf('\n', selStart) : len;
+                if (lineEnd < 0) lineEnd = len;
+                setCursorPosition(focused, lineEnd);
                 return;
             }
 
@@ -678,8 +843,8 @@ public class InputAccessibilityService extends AccessibilityService {
             int selEnd;
             if (useCache) {
                 current = mCachedText;
-                selStart = (mCachedCursor >= 0 && mCachedCursor <= mCachedText.length()) ? mCachedCursor : mCachedText.length();
-                selEnd = selStart;
+                selStart = (mCachedSelStart >= 0 && mCachedSelStart <= mCachedText.length()) ? mCachedSelStart : mCachedText.length();
+                selEnd = (mCachedSelEnd >= 0 && mCachedSelEnd <= mCachedText.length()) ? mCachedSelEnd : mCachedText.length();
             } else {
                 current = focused.getText();
                 selStart = focused.getTextSelectionStart();
@@ -708,6 +873,8 @@ public class InputAccessibilityService extends AccessibilityService {
     private void applyTextAndSelection(AccessibilityNodeInfo node, String newText, int cursor) {
         mCachedText = newText;
         mCachedCursor = cursor;
+        mCachedSelStart = cursor;
+        mCachedSelEnd = cursor;
         mCachedNodeWindowId = node.getWindowId();
         mLastKeyTypeTime = SystemClock.uptimeMillis();
 
@@ -719,14 +886,16 @@ public class InputAccessibilityService extends AccessibilityService {
     }
 
     private void setCursorPosition(AccessibilityNodeInfo node, int cursor) {
-        if (mCachedText != null) {
-            mCachedCursor = cursor;
-            mLastKeyTypeTime = SystemClock.uptimeMillis();
-        }
         setSelectionRange(node, cursor, cursor);
     }
 
     private void setSelectionRange(AccessibilityNodeInfo node, int start, int end) {
+        if (mCachedText != null) {
+            mCachedCursor = end;
+            mCachedSelStart = start;
+            mCachedSelEnd = end;
+            mLastKeyTypeTime = SystemClock.uptimeMillis();
+        }
         Bundle selArgs = new Bundle();
         selArgs.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, start);
         selArgs.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, end);
@@ -994,37 +1163,49 @@ public class InputAccessibilityService extends AccessibilityService {
             }
         }
 
-        // 3. Spatial bottom-right lookup next to focused input box (WhatsApp / chat app standard layout)
-        AccessibilityNodeInfo focused = getFocusedInputNode();
-        if (focused != null) {
-            try {
-                Rect inputRect = new Rect();
-                focused.getBoundsInScreen(inputRect);
-                int screenW = getResources().getDisplayMetrics().widthPixels;
-                int screenH = getResources().getDisplayMetrics().heightPixels;
+        // 3. Spatial bottom-right lookup next to focused input box (messaging apps only)
+        CharSequence pkg = root.getPackageName();
+        String pkgStr = (pkg != null) ? pkg.toString().toLowerCase() : "";
+        boolean isChatApp = pkgStr.contains("whatsapp") || pkgStr.contains("telegram") ||
+                            pkgStr.contains("signal") || pkgStr.contains("thoughtcrime") ||
+                            pkgStr.contains("messaging") || pkgStr.contains("orca") ||
+                            pkgStr.contains("discord") || pkgStr.contains("slack") ||
+                            pkgStr.contains("viber") || pkgStr.contains("skype") ||
+                            pkgStr.contains("line") || pkgStr.contains("wechat") ||
+                            pkgStr.contains("chat");
 
-                // If input box is in the lower half of the screen
-                if (inputRect.centerY() > screenH * 0.45f) {
-                    float clickX;
-                    if (screenW - inputRect.right > 40) {
-                        clickX = inputRect.right + (screenW - inputRect.right) / 2.0f;
-                    } else {
-                        clickX = screenW - 40f;
+        if (isChatApp) {
+            AccessibilityNodeInfo focused = getFocusedInputNode();
+            if (focused != null) {
+                try {
+                    Rect inputRect = new Rect();
+                    focused.getBoundsInScreen(inputRect);
+                    int screenW = getResources().getDisplayMetrics().widthPixels;
+                    int screenH = getResources().getDisplayMetrics().heightPixels;
+
+                    // If input box is in the lower half of the screen
+                    if (inputRect.centerY() > screenH * 0.45f) {
+                        float clickX;
+                        if (screenW - inputRect.right > 40) {
+                            clickX = inputRect.right + (screenW - inputRect.right) / 2.0f;
+                        } else {
+                            clickX = screenW - 40f;
+                        }
+                        float clickY = inputRect.centerY();
+
+                        AppLogger.i("Accessibility", "Triggering Send via spatial tap at (" + clickX + ", " + clickY + ")");
+                        clickNodeAt(clickX, clickY);
+                        dispatchClick(clickX, clickY);
+                        return true;
                     }
-                    float clickY = inputRect.centerY();
-
-                    AppLogger.i("Accessibility", "Triggering Send via spatial tap at (" + clickX + ", " + clickY + ")");
-                    clickNodeAt(clickX, clickY);
-                    dispatchClick(clickX, clickY);
-                    return true;
+                } finally {
+                    focused.recycle();
                 }
-            } finally {
-                focused.recycle();
             }
         }
 
         // 4. Fallback: IME action SEND on focused node
-        focused = getFocusedInputNode();
+        AccessibilityNodeInfo focused = getFocusedInputNode();
         if (focused != null) {
             try {
                 boolean ok = focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
@@ -1251,6 +1432,14 @@ public class InputAccessibilityService extends AccessibilityService {
         return mAltTabActive;
     }
 
+    public void cancelAltTab() {
+        if (mAltTabActive) {
+            AppLogger.i("AltTab", "Alt+Tab canceled");
+            mAltTabActive = false;
+            mAltTabCount = 0;
+        }
+    }
+
     public void onAltStateChanged(boolean isDown) {
         mAltHeld = isDown;
         if (!isDown && mAltTabActive) {
@@ -1273,31 +1462,24 @@ public class InputAccessibilityService extends AccessibilityService {
             // Consecutive Tab presses while Alt is held: cycle apps!
             mAltTabCount++;
             AppLogger.i("AltTab", "Alt+Tab (press " + mAltTabCount + ", shift=" + isShift + "): Cycling apps");
-            cycleRecentsTask(isShift);
+            handleAltTabNav(!isShift);
         }
     }
 
-    private void cycleRecentsTask(boolean isShift) {
+    public void handleAltTabNav(boolean forward) {
         int screenW = getResources().getDisplayMetrics().widthPixels;
         int screenH = getResources().getDisplayMetrics().heightPixels;
 
-        AccessibilityNodeInfo root = getRootInActiveWindow();
-        List<AccessibilityNodeInfo> tasks = new ArrayList<>();
-        if (root != null) {
-            findTaskCardsRecursive(root, tasks, screenW, screenH);
-            root.recycle();
-        }
-
+        List<AccessibilityNodeInfo> tasks = getRecentsTaskCards(screenW, screenH);
         if (tasks.size() > 1) {
-            tasks.sort((a, b) -> {
-                Rect ra = new Rect();
-                Rect rb = new Rect();
-                a.getBoundsInScreen(ra);
-                b.getBoundsInScreen(rb);
-                return Integer.compare(ra.centerX(), rb.centerX());
-            });
-
-            int targetIndex = (mAltTabCount - 1) % tasks.size();
+            int targetIndex;
+            if (forward) {
+                targetIndex = (mAltTabCount - 1) % tasks.size();
+                if (targetIndex < 0) targetIndex += tasks.size();
+            } else {
+                targetIndex = (mAltTabCount - 1) % tasks.size();
+                if (targetIndex < 0) targetIndex += tasks.size();
+            }
             AccessibilityNodeInfo target = tasks.get(targetIndex);
             target.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -1306,7 +1488,7 @@ public class InputAccessibilityService extends AccessibilityService {
 
             Rect tr = new Rect();
             target.getBoundsInScreen(tr);
-            AppLogger.i("AltTab", "Focused task card [" + targetIndex + "/" + tasks.size() + "] at " + tr);
+            AppLogger.i("AltTab", "Navigated to task card [" + targetIndex + "/" + tasks.size() + "] at " + tr);
 
             float cx = screenW * 0.5f;
             float cy = screenH * 0.5f;
@@ -1325,7 +1507,7 @@ public class InputAccessibilityService extends AccessibilityService {
                 t.recycle();
             }
             float cy = screenH * 0.5f;
-            if (!isShift) {
+            if (forward) {
                 float startX = screenW * 0.75f;
                 float endX   = screenW * 0.25f;
                 dispatchSwipe(startX, cy, endX, cy, 200);
@@ -1347,68 +1529,85 @@ public class InputAccessibilityService extends AccessibilityService {
         AppLogger.i("AltTab", "Alt released: count=" + count);
 
         mMainHandler.postDelayed(() -> {
-            commitRecentsTask(count);
+            commitRecentsSelection(count);
         }, 220);
     }
 
-    private void commitRecentsTask(int count) {
+    public void commitAltTab() {
+        if (!mAltTabActive) return;
+        final int count = mAltTabCount;
+        mAltTabActive = false;
+        mAltTabCount = 0;
+        commitRecentsSelection(count);
+    }
+
+    private void commitRecentsSelection(int count) {
         int screenW = getResources().getDisplayMetrics().widthPixels;
         int screenH = getResources().getDisplayMetrics().heightPixels;
         float cx = screenW * 0.5f;
         float cy = screenH * 0.5f;
 
-        AccessibilityNodeInfo root = getRootInActiveWindow();
-        if (root != null) {
-            try {
-                AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY);
-                if (focused != null) {
-                    try {
-                        Rect r = new Rect();
-                        focused.getBoundsInScreen(r);
-                        boolean clicked = performClickSafe(focused);
-                        if (r.width() > 0 && r.height() > 0) {
-                            dispatchClick(r.centerX(), r.centerY());
-                            clicked = true;
+        // 1. Check focused accessibility node in any window
+        try {
+            List<AccessibilityWindowInfo> windows = getWindows();
+            if (windows != null) {
+                for (AccessibilityWindowInfo w : windows) {
+                    AccessibilityNodeInfo root = w.getRoot();
+                    if (root != null) {
+                        try {
+                            AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY);
+                            if (focused != null) {
+                                try {
+                                    Rect r = new Rect();
+                                    focused.getBoundsInScreen(r);
+                                    boolean clicked = performClickSafe(focused);
+                                    if (r.width() > 0 && r.height() > 0) {
+                                        dispatchClick(r.centerX(), r.centerY());
+                                        clicked = true;
+                                    }
+                                    if (clicked) {
+                                        AppLogger.i("AltTab", "Committed app switch via focused node at " + r);
+                                        return;
+                                    }
+                                } finally {
+                                    focused.recycle();
+                                }
+                            }
+                        } finally {
+                            root.recycle();
                         }
-                        if (clicked) {
-                            AppLogger.i("AltTab", "Committed app switch via focused node at " + r);
-                            return;
-                        }
-                    } finally {
-                        focused.recycle();
                     }
                 }
-
-                List<AccessibilityNodeInfo> tasks = new ArrayList<>();
-                findTaskCardsRecursive(root, tasks, screenW, screenH);
-                if (!tasks.isEmpty()) {
-                    AccessibilityNodeInfo best = null;
-                    float bestDist = Float.MAX_VALUE;
-                    for (AccessibilityNodeInfo t : tasks) {
-                        Rect r = new Rect();
-                        t.getBoundsInScreen(r);
-                        float dist = Math.abs(r.centerX() - cx);
-                        if (dist < bestDist) {
-                            bestDist = dist;
-                            best = t;
-                        }
-                    }
-                    if (best != null) {
-                        Rect r = new Rect();
-                        best.getBoundsInScreen(r);
-                        performClickSafe(best);
-                        dispatchClick(r.centerX(), r.centerY());
-                        AppLogger.i("AltTab", "Committed app switch via closest task card at " + r);
-                        for (AccessibilityNodeInfo t : tasks) t.recycle();
-                        return;
-                    }
-                    for (AccessibilityNodeInfo t : tasks) t.recycle();
-                }
-            } finally {
-                root.recycle();
             }
+        } catch (Exception ignored) {}
+
+        // 2. Find closest task card to screen center
+        List<AccessibilityNodeInfo> tasks = getRecentsTaskCards(screenW, screenH);
+        if (!tasks.isEmpty()) {
+            AccessibilityNodeInfo best = null;
+            float bestDist = Float.MAX_VALUE;
+            for (AccessibilityNodeInfo t : tasks) {
+                Rect r = new Rect();
+                t.getBoundsInScreen(r);
+                float dist = Math.abs(r.centerX() - cx);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = t;
+                }
+            }
+            if (best != null) {
+                Rect r = new Rect();
+                best.getBoundsInScreen(r);
+                performClickSafe(best);
+                dispatchClick(r.centerX(), r.centerY());
+                AppLogger.i("AltTab", "Committed app switch via closest task card at " + r);
+                for (AccessibilityNodeInfo t : tasks) t.recycle();
+                return;
+            }
+            for (AccessibilityNodeInfo t : tasks) t.recycle();
         }
 
+        // 3. Fallback: single Alt+Tab quick-switch or center click
         if (count == 1) {
             performGlobalAction(GLOBAL_ACTION_RECENTS);
             AppLogger.i("AltTab", "Committed single Alt+Tab via double-tap Recents quick-switch");
@@ -1419,6 +1618,41 @@ public class InputAccessibilityService extends AccessibilityService {
             }
             AppLogger.i("AltTab", "Committed app switch via center click at (" + cx + ", " + cy + ")");
         }
+    }
+
+    private List<AccessibilityNodeInfo> getRecentsTaskCards(int screenW, int screenH) {
+        List<AccessibilityNodeInfo> tasks = new ArrayList<>();
+        AccessibilityNodeInfo activeRoot = getRootInActiveWindow();
+        if (activeRoot != null) {
+            findTaskCardsRecursive(activeRoot, tasks, screenW, screenH);
+            activeRoot.recycle();
+        }
+
+        if (tasks.isEmpty()) {
+            try {
+                List<AccessibilityWindowInfo> windows = getWindows();
+                if (windows != null) {
+                    for (AccessibilityWindowInfo w : windows) {
+                        AccessibilityNodeInfo wr = w.getRoot();
+                        if (wr != null) {
+                            findTaskCardsRecursive(wr, tasks, screenW, screenH);
+                            wr.recycle();
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (tasks.size() > 1) {
+            tasks.sort((a, b) -> {
+                Rect ra = new Rect();
+                Rect rb = new Rect();
+                a.getBoundsInScreen(ra);
+                b.getBoundsInScreen(rb);
+                return Integer.compare(ra.centerX(), rb.centerX());
+            });
+        }
+        return tasks;
     }
 
     private void findTaskCardsRecursive(AccessibilityNodeInfo node, List<AccessibilityNodeInfo> out, int screenW, int screenH) {
@@ -1432,7 +1666,7 @@ public class InputAccessibilityService extends AccessibilityService {
         String idStr = (resId != null) ? resId.toLowerCase() : "";
 
         boolean isCard = (cls.contains("TaskView") || cls.contains("RecentsView") || idStr.contains("task_view") || idStr.contains("snapshot") || idStr.contains("card"))
-                || (node.isClickable() && r.width() >= screenW * 0.25f && r.height() >= screenH * 0.25f && r.width() < screenW * 0.98f);
+                || (node.isClickable() && r.width() >= screenW * 0.25f && r.height() >= screenH * 0.25f);
 
         if (isCard) {
             out.add(AccessibilityNodeInfo.obtain(node));
