@@ -607,6 +607,18 @@ public class InputAccessibilityService extends AccessibilityService {
                     setSelectionRange(focused, selStart, newEnd);
                     return;
                 }
+                // Shift + Up Arrow
+                if (androidKeycode == 19 && current != null) {
+                    int newStart = moveLineUp(current, selStart);
+                    setSelectionRange(focused, newStart, selEnd);
+                    return;
+                }
+                // Shift + Down Arrow
+                if (androidKeycode == 20 && current != null) {
+                    int newEnd = moveLineDown(current, selEnd);
+                    setSelectionRange(focused, selStart, newEnd);
+                    return;
+                }
                 // Shift + Home (Select to Start of Line)
                 if (androidKeycode == 122) {
                     int lineStart = (current != null) ? current.toString().lastIndexOf('\n', Math.max(0, selStart - 1)) + 1 : 0;
