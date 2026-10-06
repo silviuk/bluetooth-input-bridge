@@ -636,17 +636,69 @@ public class BluetoothBridgeService extends Service {
                             return;
                         }
 
-                        // 2. Ctrl + Enter (Send message in WhatsApp & chat apps)
-                        if ((modifiers & Protocol.MOD_CTRL) != 0 && (androidKc == 66 || winVk == 13)) {
-                            LapdroidInputMethodService ime = LapdroidInputMethodService.getInstance();
-                            if (ime != null && ime.forwardKey(androidKc, unicodeChar, modifiers)) {
-                                AppLogger.i("BT-Bridge", "Executed Ctrl+Enter -> Send via IME");
-                                return;
+                        // 2. Enter handling (Ctrl+Enter, Shift+Enter, and Enter modes)
+                        boolean isEnter = (androidKc == 66 || winVk == 13);
+                        if (isEnter) {
+                            boolean isCtrl = (modifiers & Protocol.MOD_CTRL) != 0;
+                            boolean isShift = (modifiers & Protocol.MOD_SHIFT) != 0;
+
+                            // Ctrl + Enter: ALWAYS trigger send
+                            if (isCtrl) {
+                                LapdroidInputMethodService ime = LapdroidInputMethodService.getInstance();
+                                if (ime != null && ime.forwardKey(androidKc, unicodeChar, modifiers)) {
+                                    AppLogger.i("BT-Bridge", "Executed Ctrl+Enter -> Send via IME");
+                                    return;
+                                }
+                                if (accessService != null && accessService.triggerSendAction()) {
+                                    AppLogger.i("BT-Bridge", "Executed Ctrl+Enter -> Send via Accessibility");
+                                    return;
+                                }
                             }
-                            if (accessService != null && accessService.triggerSendAction()) {
-                                AppLogger.i("BT-Bridge", "Executed Ctrl+Enter -> Send via Accessibility");
-                                return;
+
+                            // Shift + Enter:
+                            if (isShift) {
+                                if (settings.getEnterMode() == BridgeSettings.ENTER_MODE_ACTION) {
+                                    // In "Always submit" mode, Shift+Enter inputs a new line!
+                                    LapdroidInputMethodService ime = LapdroidInputMethodService.getInstance();
+                                    if (ime != null && ime.forwardKey(androidKc, '\n', (byte) 0)) {
+                                        AppLogger.i("BT-Bridge", "Executed Shift+Enter -> Newline via IME (Always submit mode)");
+                                        return;
+                                    }
+                                    if (accessService != null) {
+                                        accessService.insertNewline();
+                                        AppLogger.i("BT-Bridge", "Executed Shift+Enter -> Newline via Accessibility (Always submit mode)");
+                                        return;
+                                    }
+                                } else {
+                                    // In Newline / Smart mode, Shift+Enter sends the message!
+                                    LapdroidInputMethodService ime = LapdroidInputMethodService.getInstance();
+                                    if (ime != null && ime.forwardKey(androidKc, unicodeChar, modifiers)) {
+                                        AppLogger.i("BT-Bridge", "Executed Shift+Enter -> Send via IME");
+                                        return;
+                                    }
+                                    if (accessService != null && accessService.triggerSendAction()) {
+                                        AppLogger.i("BT-Bridge", "Executed Shift+Enter -> Send via Accessibility");
+                                        return;
+                                    }
+                                }
                             }
+
+                            // Plain Enter without Ctrl or Shift:
+                            if (!isCtrl && !isShift && settings.getEnterMode() == BridgeSettings.ENTER_MODE_ACTION) {
+                                if (accessService != null && accessService.triggerSendAction()) {
+                                    AppLogger.i("BT-Bridge", "Executed Enter -> Send via Accessibility (Always submit mode)");
+                                    return;
+                                }
+                            }
+                        }
+
+                        // Pure modifier key press (Alt, Ctrl, Shift, Meta) - do not type into text boxes
+                        boolean isModifierOnly = (androidKc == 57 || androidKc == 58 || androidKc == 113 ||
+                                                  androidKc == 114 || androidKc == 59 || androidKc == 60 ||
+                                                  androidKc == 117 || androidKc == 118 || winVk == 16 ||
+                                                  winVk == 17 || winVk == 18 || winVk == 91 || winVk == 92);
+                        if (isModifierOnly) {
+                            return;
                         }
 
                         // 3. Windows / Meta Key (System Navigation: Home, Notifications, or Recents)

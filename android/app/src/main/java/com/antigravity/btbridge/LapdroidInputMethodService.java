@@ -100,6 +100,29 @@ public class LapdroidInputMethodService extends InputMethodService {
 
         // 4. Enter
         if (androidKeycode == 66) { // KEYCODE_ENTER
+            BridgeSettings settings = BridgeSettings.getInstance(this);
+            if ((modifiers & Protocol.MOD_SHIFT) != 0) {
+                if (settings.getEnterMode() == BridgeSettings.ENTER_MODE_ACTION) {
+                    ic.commitText("\n", 1);
+                    return true;
+                } else {
+                    InputAccessibilityService accessService = InputAccessibilityService.getInstance();
+                    if (accessService != null && accessService.triggerSendAction()) {
+                        return true;
+                    }
+                    if (ic.performEditorAction(EditorInfo.IME_ACTION_SEND)) {
+                        return true;
+                    }
+                }
+            } else if (settings.getEnterMode() == BridgeSettings.ENTER_MODE_ACTION) {
+                InputAccessibilityService accessService = InputAccessibilityService.getInstance();
+                if (accessService != null && accessService.triggerSendAction()) {
+                    return true;
+                }
+                if (ic.performEditorAction(EditorInfo.IME_ACTION_SEND)) {
+                    return true;
+                }
+            }
             ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0, metaState));
             ic.sendKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0, metaState));
             return true;

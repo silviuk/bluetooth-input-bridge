@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.content.Context;
 import android.graphics.Path;
+import android.graphics.Rect;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -17,10 +18,20 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.view.inputmethod.EditorInfo;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class InputAccessibilityService extends AccessibilityService {
     private static InputAccessibilityService sInstance = null;
+
+    // Fast typing buffer cache (eliminates IPC lag, dropped chars, and WhatsApp placeholder race conditions)
+    private String mCachedText = null;
+    private int mCachedCursor = -1;
+    private int mCachedNodeWindowId = -1;
+    private long mLastKeyTypeTime = 0;
+
+    // UI Element Tab navigation focus tracking
+    private AccessibilityNodeInfo mTabActiveNode = null;
 
     public static InputAccessibilityService getInstance() {
         return sInstance;
@@ -43,11 +54,27 @@ public class InputAccessibilityService extends AccessibilityService {
     @Override
     public void onDestroy() {
         sInstance = null;
+        if (mTabActiveNode != null) {
+            mTabActiveNode.recycle();
+            mTabActiveNode = null;
+        }
         super.onDestroy();
     }
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (event == null) return;
+        int type = event.getEventType();
+        if (type == AccessibilityEvent.TYPE_VIEW_FOCUSED || type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            // Window or focus changed; invalidate typing cache
+            mCachedText = null;
+            mCachedCursor = -1;
+            mCachedNodeWindowId = -1;
+            if (mTabActiveNode != null) {
+                mTabActiveNode.recycle();
+                mTabActiveNode = null;
+            }
+        }
     }
 
     @Override
@@ -260,11 +287,40 @@ public class InputAccessibilityService extends AccessibilityService {
         boolean isCtrl  = (modifiers & Protocol.MOD_CTRL) != 0;
         boolean isShift = (modifiers & Protocol.MOD_SHIFT) != 0;
 
+        // 0. Tab Focus Element Click: If an element was focused via Tab, Enter or Space clicks it!
+        if (mTabActiveNode != null) {
+            if (androidKeycode == 61) { // Tab continues cycling
+                handleTabNavigation(isShift);
+                return;
+            } else if (androidKeycode == 66 || androidKeycode == 62) { // Enter or Space activates
+                performClickSafe(mTabActiveNode);
+                android.graphics.Rect r = new android.graphics.Rect();
+                mTabActiveNode.getBoundsInScreen(r);
+                if (r.width() > 0 && r.height() > 0) {
+                    dispatchClick(r.centerX(), r.centerY());
+                }
+                AppLogger.i("Accessibility", "Clicked tab-focused element with key " + androidKeycode);
+                mTabActiveNode.recycle();
+                mTabActiveNode = null;
+                return;
+            } else if (androidKeycode == 111 || androidKeycode == 4) { // Esc / Back cancels tab focus
+                mTabActiveNode.recycle();
+                mTabActiveNode = null;
+                return;
+            }
+        }
+
         // Ctrl + Enter: Trigger Send in WhatsApp and messaging apps
         if (isCtrl && androidKeycode == 66) {
             if (triggerSendAction()) {
                 return;
             }
+        }
+
+        // Tab Navigation from outside an input box
+        if (androidKeycode == 61 && settings.getTabMode() == BridgeSettings.TAB_MODE_FOCUS) {
+            handleTabNavigation(isShift);
+            return;
         }
 
         AccessibilityNodeInfo focused = getFocusedInputNode();
@@ -287,49 +343,58 @@ public class InputAccessibilityService extends AccessibilityService {
         }
 
         try {
-            CharSequence current = focused.getText();
-            CharSequence hintText = focused.getHintText();
-            boolean isShowingHint = focused.isShowingHintText();
-            int selStart = focused.getTextSelectionStart();
-            int selEnd = focused.getTextSelectionEnd();
+            long now = SystemClock.uptimeMillis();
+            boolean useCache = (mCachedText != null && (now - mLastKeyTypeTime < 1200) && (focused.getWindowId() == mCachedNodeWindowId));
+            CharSequence current;
+            int selStart;
+            int selEnd;
 
-            // Detect if current text is background placeholder/hint text (e.g. WhatsApp "Message" or "Type a message")
-            boolean isPlaceholder = false;
-            if (settings.isIgnorePlaceholdersEnabled()) {
-                if (isShowingHint) {
-                    isPlaceholder = true;
-                } else if (hintText != null && current != null) {
-                    String curStr = current.toString().trim();
-                    String hStr = hintText.toString().trim();
-                    if (curStr.equalsIgnoreCase(hStr)) {
+            if (useCache) {
+                current = mCachedText;
+                selStart = (mCachedCursor >= 0 && mCachedCursor <= mCachedText.length()) ? mCachedCursor : mCachedText.length();
+                selEnd = selStart;
+            } else {
+                current = focused.getText();
+                CharSequence hintText = focused.getHintText();
+                boolean isShowingHint = focused.isShowingHintText();
+                selStart = focused.getTextSelectionStart();
+                selEnd = focused.getTextSelectionEnd();
+
+                // Detect if current text is background placeholder/hint text (e.g. WhatsApp "Message" or "Type a message")
+                boolean isPlaceholder = false;
+                if (settings.isIgnorePlaceholdersEnabled()) {
+                    if (isShowingHint) {
                         isPlaceholder = true;
+                    } else if (hintText != null && current != null) {
+                        String curStr = current.toString().trim();
+                        String hStr = hintText.toString().trim();
+                        if (curStr.equalsIgnoreCase(hStr)) {
+                            isPlaceholder = true;
+                        }
                     }
-                }
-                if (!isPlaceholder && current != null) {
-                    String curStr = current.toString().trim();
-                    if (curStr.equalsIgnoreCase("Message") ||
-                        curStr.equalsIgnoreCase("Type a message") ||
-                        curStr.equalsIgnoreCase("Write a message...") ||
-                        curStr.equalsIgnoreCase("Send a message") ||
-                        curStr.equalsIgnoreCase("Search") ||
-                        curStr.equalsIgnoreCase("Search...")) {
-                        // If unselected or at boundary, it's the background placeholder
-                        if (selStart < 0 || selStart == 0 || selStart == curStr.length()) {
+                    if (!isPlaceholder && current != null) {
+                        String curStr = current.toString().trim();
+                        if (curStr.equalsIgnoreCase("Message") ||
+                            curStr.equalsIgnoreCase("Type a message") ||
+                            curStr.equalsIgnoreCase("Write a message...") ||
+                            curStr.equalsIgnoreCase("Send a message") ||
+                            curStr.equalsIgnoreCase("Search") ||
+                            curStr.equalsIgnoreCase("Search...")) {
                             isPlaceholder = true;
                         }
                     }
                 }
-            }
 
-            if (isPlaceholder) {
-                current = "";
-                selStart = 0;
-                selEnd = 0;
-            } else {
-                int l = (current != null) ? current.length() : 0;
-                if (selStart < 0 || selEnd < 0) {
-                    selStart = l;
-                    selEnd = l;
+                if (isPlaceholder) {
+                    current = "";
+                    selStart = 0;
+                    selEnd = 0;
+                } else {
+                    int l = (current != null) ? current.length() : 0;
+                    if (selStart < 0 || selEnd < 0) {
+                        selStart = l;
+                        selEnd = l;
+                    }
                 }
             }
             int len = (current != null) ? current.length() : 0;
@@ -482,21 +547,28 @@ public class InputAccessibilityService extends AccessibilityService {
             // ================= 5. ENTER (KEYCODE_ENTER = 66) =================
             if (androidKeycode == 66) {
                 int enterMode = settings.getEnterMode();
+                if (isShift) {
+                    if (enterMode == BridgeSettings.ENTER_MODE_ACTION) {
+                        insertNewlineOnNode(focused, current, selStart, selEnd);
+                        return;
+                    } else {
+                        if (triggerSendAction()) {
+                            return;
+                        }
+                    }
+                }
+
                 if (enterMode == BridgeSettings.ENTER_MODE_NEWLINE || (enterMode == BridgeSettings.ENTER_MODE_SMART && focused.isMultiLine())) {
-                    StringBuilder sb = new StringBuilder(current != null ? current : "");
-                    int min = Math.min(selStart, selEnd);
-                    int max = Math.max(selStart, selEnd);
-                    sb.replace(min, max, "\n");
-                    int newCursor = min + 1;
-                    applyTextAndSelection(focused, sb.toString(), newCursor);
-                    AppLogger.d("Accessibility", "Executed Enter newline at position " + newCursor);
+                    insertNewlineOnNode(focused, current, selStart, selEnd);
+                    AppLogger.d("Accessibility", "Executed Enter newline");
                 } else {
-                    // Single-line field action: attempt click on submit/send button or perform IME_ENTER / click
-                    boolean clicked = clickNearbyActionOrButton(focused);
-                    if (!clicked) {
-                        boolean imeEntered = focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
-                        if (!imeEntered) {
-                            focused.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                    if (!triggerSendAction()) {
+                        boolean clicked = clickNearbyActionOrButton(focused);
+                        if (!clicked) {
+                            boolean imeEntered = focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
+                            if (!imeEntered) {
+                                focused.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                            }
                         }
                     }
                     AppLogger.d("Accessibility", "Executed Enter action (Submit/Click)");
@@ -508,14 +580,7 @@ public class InputAccessibilityService extends AccessibilityService {
             if (androidKeycode == 61) {
                 int tabMode = settings.getTabMode();
                 if (tabMode == BridgeSettings.TAB_MODE_FOCUS) {
-                    // Focus navigation
-                    int focusDir = isShift ? View.FOCUS_BACKWARD : View.FOCUS_FORWARD;
-                    AccessibilityNodeInfo target = focused.focusSearch(focusDir);
-                    if (target != null) {
-                        target.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
-                        target.recycle();
-                        AppLogger.d("Accessibility", "Executed Tab focus navigation");
-                    }
+                    handleTabNavigation(isShift);
                 } else {
                     // Text insertion
                     String tabStr = (tabMode == BridgeSettings.TAB_MODE_SPACES) ? "    " : "\t";
@@ -602,7 +667,50 @@ public class InputAccessibilityService extends AccessibilityService {
         }
     }
 
+    public void insertNewline() {
+        AccessibilityNodeInfo focused = getFocusedInputNode();
+        if (focused == null) return;
+        try {
+            long now = SystemClock.uptimeMillis();
+            boolean useCache = (mCachedText != null && (now - mLastKeyTypeTime < 1500) && (focused.getWindowId() == mCachedNodeWindowId));
+            CharSequence current;
+            int selStart;
+            int selEnd;
+            if (useCache) {
+                current = mCachedText;
+                selStart = (mCachedCursor >= 0 && mCachedCursor <= mCachedText.length()) ? mCachedCursor : mCachedText.length();
+                selEnd = selStart;
+            } else {
+                current = focused.getText();
+                selStart = focused.getTextSelectionStart();
+                selEnd = focused.getTextSelectionEnd();
+                int l = (current != null) ? current.length() : 0;
+                if (selStart < 0 || selEnd < 0) {
+                    selStart = l;
+                    selEnd = l;
+                }
+            }
+            insertNewlineOnNode(focused, current, selStart, selEnd);
+        } finally {
+            focused.recycle();
+        }
+    }
+
+    private void insertNewlineOnNode(AccessibilityNodeInfo node, CharSequence current, int selStart, int selEnd) {
+        StringBuilder sb = new StringBuilder(current != null ? current : "");
+        int min = Math.min(selStart, selEnd);
+        int max = Math.max(selStart, selEnd);
+        sb.replace(min, max, "\n");
+        int newCursor = min + 1;
+        applyTextAndSelection(node, sb.toString(), newCursor);
+    }
+
     private void applyTextAndSelection(AccessibilityNodeInfo node, String newText, int cursor) {
+        mCachedText = newText;
+        mCachedCursor = cursor;
+        mCachedNodeWindowId = node.getWindowId();
+        mLastKeyTypeTime = SystemClock.uptimeMillis();
+
         Bundle args = new Bundle();
         args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText);
         node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args);
@@ -611,6 +719,10 @@ public class InputAccessibilityService extends AccessibilityService {
     }
 
     private void setCursorPosition(AccessibilityNodeInfo node, int cursor) {
+        if (mCachedText != null) {
+            mCachedCursor = cursor;
+            mLastKeyTypeTime = SystemClock.uptimeMillis();
+        }
         setSelectionRange(node, cursor, cursor);
     }
 
@@ -791,7 +903,7 @@ public class InputAccessibilityService extends AccessibilityService {
         return null;
     }
 
-    // ================= CTRL+ENTER SEND TRIGGER =================
+    // ================= CTRL+ENTER & SHIFT+ENTER SEND TRIGGER =================
     public boolean triggerSendAction() {
         AppLogger.i("Accessibility", "Attempting to trigger Send action via accessibility tree");
         AccessibilityNodeInfo root = getRootInActiveWindow();
@@ -843,8 +955,15 @@ public class InputAccessibilityService extends AccessibilityService {
                 if (nodes != null && !nodes.isEmpty()) {
                     for (AccessibilityNodeInfo node : nodes) {
                         try {
-                            if (performClickSafe(node)) {
-                                AppLogger.i("Accessibility", "Triggered Send via viewId: " + id);
+                            Rect r = new Rect();
+                            node.getBoundsInScreen(r);
+                            boolean clicked = performClickSafe(node);
+                            if (r.width() > 0 && r.height() > 0) {
+                                dispatchClick(r.centerX(), r.centerY());
+                                clicked = true;
+                            }
+                            if (clicked) {
+                                AppLogger.i("Accessibility", "Triggered Send via viewId: " + id + " at " + r);
                                 return true;
                             }
                         } finally {
@@ -855,39 +974,19 @@ public class InputAccessibilityService extends AccessibilityService {
             } catch (Exception ignored) {}
         }
 
-        // 2. Multilingual Content Description match for Send
-        String[] sendDescriptions = {
-            "send", "enviar", "senden", "envoyer", "invia", "отправить", "trimite", "wyslij", "stuur", "gonder"
-        };
-        for (String desc : sendDescriptions) {
-            try {
-                List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByText(desc);
-                if (nodes != null) {
-                    for (AccessibilityNodeInfo node : nodes) {
-                        try {
-                            CharSequence cd = node.getContentDescription();
-                            CharSequence text = node.getText();
-                            String s = (cd != null ? cd.toString() : (text != null ? text.toString() : "")).trim();
-                            if (s.equalsIgnoreCase(desc)) {
-                                if (performClickSafe(node)) {
-                                    AppLogger.i("Accessibility", "Triggered Send via description: " + desc);
-                                    return true;
-                                }
-                            }
-                        } finally {
-                            node.recycle();
-                        }
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
-
-        // 3. Recursive tree search for any viewId containing "send"
+        // 2. Recursive tree search for any view containing "send" in description or ID
         AccessibilityNodeInfo sendNode = findSendNodeRecursive(root);
         if (sendNode != null) {
             try {
-                if (performClickSafe(sendNode)) {
-                    AppLogger.i("Accessibility", "Triggered Send via recursive search");
+                Rect r = new Rect();
+                sendNode.getBoundsInScreen(r);
+                boolean clicked = performClickSafe(sendNode);
+                if (r.width() > 0 && r.height() > 0) {
+                    dispatchClick(r.centerX(), r.centerY());
+                    clicked = true;
+                }
+                if (clicked) {
+                    AppLogger.i("Accessibility", "Triggered Send via recursive search at " + r);
                     return true;
                 }
             } finally {
@@ -895,8 +994,37 @@ public class InputAccessibilityService extends AccessibilityService {
             }
         }
 
-        // 4. Fallback: IME action SEND on focused node
+        // 3. Spatial bottom-right lookup next to focused input box (WhatsApp / chat app standard layout)
         AccessibilityNodeInfo focused = getFocusedInputNode();
+        if (focused != null) {
+            try {
+                Rect inputRect = new Rect();
+                focused.getBoundsInScreen(inputRect);
+                int screenW = getResources().getDisplayMetrics().widthPixels;
+                int screenH = getResources().getDisplayMetrics().heightPixels;
+
+                // If input box is in the lower half of the screen
+                if (inputRect.centerY() > screenH * 0.45f) {
+                    float clickX;
+                    if (screenW - inputRect.right > 40) {
+                        clickX = inputRect.right + (screenW - inputRect.right) / 2.0f;
+                    } else {
+                        clickX = screenW - 40f;
+                    }
+                    float clickY = inputRect.centerY();
+
+                    AppLogger.i("Accessibility", "Triggering Send via spatial tap at (" + clickX + ", " + clickY + ")");
+                    clickNodeAt(clickX, clickY);
+                    dispatchClick(clickX, clickY);
+                    return true;
+                }
+            } finally {
+                focused.recycle();
+            }
+        }
+
+        // 4. Fallback: IME action SEND on focused node
+        focused = getFocusedInputNode();
         if (focused != null) {
             try {
                 boolean ok = focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
@@ -913,21 +1041,26 @@ public class InputAccessibilityService extends AccessibilityService {
     }
 
     private AccessibilityNodeInfo findSendNodeRecursive(AccessibilityNodeInfo node) {
-        if (node == null) return null;
+        if (node == null || !node.isVisibleToUser()) return null;
+
         String resId = node.getViewIdResourceName();
         if (resId != null && resId.toLowerCase().contains("send")) {
-            if (node.isClickable() || (node.getParent() != null && node.getParent().isClickable())) {
-                return AccessibilityNodeInfo.obtain(node);
-            }
+            return AccessibilityNodeInfo.obtain(node);
         }
+
         CharSequence cd = node.getContentDescription();
-        if (cd != null && cd.toString().trim().equalsIgnoreCase("send")) {
-            if (node.isClickable() || (node.getParent() != null && node.getParent().isClickable())) {
+        if (cd != null) {
+            String s = cd.toString().trim().toLowerCase();
+            if (s.equals("send") || s.equals("enviar") || s.equals("senden") ||
+                s.equals("envoyer") || s.equals("invia") || s.equals("отправить") ||
+                s.equals("trimite") || s.equals("wyslij") || s.equals("stuur") ||
+                s.equals("gönder") || s.equals("gonder") || s.contains("send message")) {
                 return AccessibilityNodeInfo.obtain(node);
             }
         }
+
         int count = node.getChildCount();
-        for (int i = 0; i < count; i++) {
+        for (int i = count - 1; i >= 0; i--) { // Reverse order: bottom-right children first
             AccessibilityNodeInfo child = node.getChild(i);
             if (child != null) {
                 AccessibilityNodeInfo found = findSendNodeRecursive(child);
@@ -966,13 +1099,149 @@ public class InputAccessibilityService extends AccessibilityService {
         return false;
     }
 
+    // ================= TAB FOCUS ELEMENT NAVIGATION =================
+    public void handleTabNavigation(boolean isShift) {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) {
+            try {
+                List<AccessibilityWindowInfo> windows = getWindows();
+                if (windows != null) {
+                    for (AccessibilityWindowInfo w : windows) {
+                        if (w.isFocused() || w.isActive()) {
+                            AccessibilityNodeInfo wr = w.getRoot();
+                            if (wr != null) {
+                                root = wr;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        if (root == null) return;
+
+        try {
+            int screenW = getResources().getDisplayMetrics().widthPixels;
+            int screenH = getResources().getDisplayMetrics().heightPixels;
+
+            List<AccessibilityNodeInfo> interactiveNodes = new ArrayList<>();
+            collectInteractiveNodes(root, interactiveNodes, screenW, screenH);
+
+            if (interactiveNodes.isEmpty()) return;
+
+            // Sort nodes visually: reading order (row by row, left to right within row)
+            interactiveNodes.sort((a, b) -> {
+                Rect ra = new Rect();
+                Rect rb = new Rect();
+                a.getBoundsInScreen(ra);
+                b.getBoundsInScreen(rb);
+                if (Math.abs(ra.centerY() - rb.centerY()) < 60) {
+                    return Integer.compare(ra.left, rb.left);
+                }
+                return Integer.compare(ra.top, rb.top);
+            });
+
+            // Find current active index
+            int currentIndex = -1;
+            if (mTabActiveNode != null) {
+                Rect tr = new Rect();
+                mTabActiveNode.getBoundsInScreen(tr);
+                for (int i = 0; i < interactiveNodes.size(); i++) {
+                    Rect nr = new Rect();
+                    interactiveNodes.get(i).getBoundsInScreen(nr);
+                    if (tr.equals(nr)) {
+                        currentIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            if (currentIndex == -1) {
+                AccessibilityNodeInfo focused = getFocusedInputNode();
+                if (focused != null) {
+                    try {
+                        Rect fr = new Rect();
+                        focused.getBoundsInScreen(fr);
+                        for (int i = 0; i < interactiveNodes.size(); i++) {
+                            Rect nr = new Rect();
+                            interactiveNodes.get(i).getBoundsInScreen(nr);
+                            if (fr.contains(nr) || nr.contains(fr) || (Math.abs(fr.centerY() - nr.centerY()) < 40 && Math.abs(fr.centerX() - nr.centerX()) < 60)) {
+                                currentIndex = i;
+                                break;
+                            }
+                        }
+                    } finally {
+                        focused.recycle();
+                    }
+                }
+            }
+
+            int targetIndex;
+            if (currentIndex == -1) {
+                targetIndex = isShift ? interactiveNodes.size() - 1 : 0;
+            } else {
+                targetIndex = isShift ? (currentIndex - 1 + interactiveNodes.size()) % interactiveNodes.size()
+                                      : (currentIndex + 1) % interactiveNodes.size();
+            }
+
+            AccessibilityNodeInfo target = interactiveNodes.get(targetIndex);
+
+            if (mTabActiveNode != null) {
+                mTabActiveNode.recycle();
+                mTabActiveNode = null;
+            }
+            mTabActiveNode = AccessibilityNodeInfo.obtain(target);
+
+            target.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS);
+            target.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                target.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SHOW_ON_SCREEN.getId());
+            }
+
+            Rect tr = new Rect();
+            target.getBoundsInScreen(tr);
+            CharSequence desc = target.getContentDescription();
+            CharSequence txt = target.getText();
+            String label = (desc != null) ? desc.toString() : ((txt != null) ? txt.toString() : target.getClassName().toString());
+            AppLogger.i("Accessibility", "Tab focus moved to [" + targetIndex + "/" + interactiveNodes.size() + "] " + label + " at " + tr);
+
+            for (AccessibilityNodeInfo n : interactiveNodes) {
+                n.recycle();
+            }
+        } finally {
+            root.recycle();
+        }
+    }
+
+    private void collectInteractiveNodes(AccessibilityNodeInfo node, List<AccessibilityNodeInfo> out, int screenW, int screenH) {
+        if (node == null || !node.isVisibleToUser()) return;
+
+        Rect r = new Rect();
+        node.getBoundsInScreen(r);
+
+        boolean isInteractive = node.isClickable() || node.isFocusable() || node.isEditable();
+        boolean validSize = r.width() >= 20 && r.height() >= 20 && (r.width() < screenW * 0.98f || r.height() < screenH * 0.95f);
+
+        if (isInteractive && validSize) {
+            out.add(AccessibilityNodeInfo.obtain(node));
+        }
+
+        int count = node.getChildCount();
+        for (int i = 0; i < count; i++) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child != null) {
+                collectInteractiveNodes(child, out, screenW, screenH);
+                child.recycle();
+            }
+        }
+    }
+
     // ================= ALT+TAB APP SWITCHER & CYCLER =================
     private boolean mAltHeld = false;
     private boolean mAltTabActive = false;
     private int mAltTabCount = 0;
     private long mAltTabStartTime = 0;
     private final Handler mMainHandler = new Handler(Looper.getMainLooper());
-    private Runnable mSingleTabCommitRunnable = null;
 
     public boolean isAltHeld() {
         return mAltHeld;
@@ -991,11 +1260,9 @@ public class InputAccessibilityService extends AccessibilityService {
 
     public void handleAltTab(boolean isShift) {
         long now = SystemClock.uptimeMillis();
-        int screenW = getResources().getDisplayMetrics().widthPixels;
-        int screenH = getResources().getDisplayMetrics().heightPixels;
 
         if (!mAltTabActive) {
-            // First press of Alt+Tab: open Recents
+            // First press of Alt+Tab: open Recents overview
             mAltTabActive = true;
             mAltTabCount = 1;
             mAltTabStartTime = now;
@@ -1006,20 +1273,63 @@ public class InputAccessibilityService extends AccessibilityService {
             // Consecutive Tab presses while Alt is held: cycle apps!
             mAltTabCount++;
             AppLogger.i("AltTab", "Alt+Tab (press " + mAltTabCount + ", shift=" + isShift + "): Cycling apps");
+            cycleRecentsTask(isShift);
+        }
+    }
 
-            if (mSingleTabCommitRunnable != null) {
-                mMainHandler.removeCallbacks(mSingleTabCommitRunnable);
-                mSingleTabCommitRunnable = null;
+    private void cycleRecentsTask(boolean isShift) {
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int screenH = getResources().getDisplayMetrics().heightPixels;
+
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        List<AccessibilityNodeInfo> tasks = new ArrayList<>();
+        if (root != null) {
+            findTaskCardsRecursive(root, tasks, screenW, screenH);
+            root.recycle();
+        }
+
+        if (tasks.size() > 1) {
+            tasks.sort((a, b) -> {
+                Rect ra = new Rect();
+                Rect rb = new Rect();
+                a.getBoundsInScreen(ra);
+                b.getBoundsInScreen(rb);
+                return Integer.compare(ra.centerX(), rb.centerX());
+            });
+
+            int targetIndex = (mAltTabCount - 1) % tasks.size();
+            AccessibilityNodeInfo target = tasks.get(targetIndex);
+            target.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                target.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SHOW_ON_SCREEN.getId());
             }
 
+            Rect tr = new Rect();
+            target.getBoundsInScreen(tr);
+            AppLogger.i("AltTab", "Focused task card [" + targetIndex + "/" + tasks.size() + "] at " + tr);
+
+            float cx = screenW * 0.5f;
+            float cy = screenH * 0.5f;
+            float dx = cx - tr.centerX();
+            if (Math.abs(dx) > 100) {
+                float startX = cx;
+                float endX = cx + (dx > 0 ? 300 : -300);
+                dispatchSwipe(startX, cy, endX, cy, 180);
+            }
+
+            for (AccessibilityNodeInfo t : tasks) {
+                t.recycle();
+            }
+        } else {
+            for (AccessibilityNodeInfo t : tasks) {
+                t.recycle();
+            }
             float cy = screenH * 0.5f;
             if (!isShift) {
-                // Cycle forward (swipe left to bring next card into center)
                 float startX = screenW * 0.75f;
                 float endX   = screenW * 0.25f;
                 dispatchSwipe(startX, cy, endX, cy, 200);
             } else {
-                // Cycle backward (swipe right to bring previous card into center)
                 float startX = screenW * 0.25f;
                 float endX   = screenW * 0.75f;
                 dispatchSwipe(startX, cy, endX, cy, 200);
@@ -1036,35 +1346,106 @@ public class InputAccessibilityService extends AccessibilityService {
 
         AppLogger.i("AltTab", "Alt released: count=" + count);
 
-        // Commit the selected app by clicking the centered app card
-        // Wait 220ms for the Overview animation or last swipe to settle
         mMainHandler.postDelayed(() -> {
-            boolean clicked = clickCenteredRecentApp();
-            if (!clicked && count == 1) {
-                performGlobalAction(GLOBAL_ACTION_RECENTS);
-            }
-            AppLogger.i("AltTab", "Committed app switch to active task (count=" + count + ")");
+            commitRecentsTask(count);
         }, 220);
     }
 
-    private boolean clickCenteredRecentApp() {
+    private void commitRecentsTask(int count) {
         int screenW = getResources().getDisplayMetrics().widthPixels;
         int screenH = getResources().getDisplayMetrics().heightPixels;
         float cx = screenW * 0.5f;
         float cy = screenH * 0.5f;
 
-        AppLogger.i("AltTab", "clickCenteredRecentApp at (" + cx + ", " + cy + ")");
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root != null) {
+            try {
+                AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY);
+                if (focused != null) {
+                    try {
+                        Rect r = new Rect();
+                        focused.getBoundsInScreen(r);
+                        boolean clicked = performClickSafe(focused);
+                        if (r.width() > 0 && r.height() > 0) {
+                            dispatchClick(r.centerX(), r.centerY());
+                            clicked = true;
+                        }
+                        if (clicked) {
+                            AppLogger.i("AltTab", "Committed app switch via focused node at " + r);
+                            return;
+                        }
+                    } finally {
+                        focused.recycle();
+                    }
+                }
 
-        // 1. Accessibility node click at center
-        boolean nodeClicked = clickNodeAt(cx, cy);
-        if (nodeClicked) {
-            AppLogger.i("AltTab", "Activated centered app via node click");
-            return true;
+                List<AccessibilityNodeInfo> tasks = new ArrayList<>();
+                findTaskCardsRecursive(root, tasks, screenW, screenH);
+                if (!tasks.isEmpty()) {
+                    AccessibilityNodeInfo best = null;
+                    float bestDist = Float.MAX_VALUE;
+                    for (AccessibilityNodeInfo t : tasks) {
+                        Rect r = new Rect();
+                        t.getBoundsInScreen(r);
+                        float dist = Math.abs(r.centerX() - cx);
+                        if (dist < bestDist) {
+                            bestDist = dist;
+                            best = t;
+                        }
+                    }
+                    if (best != null) {
+                        Rect r = new Rect();
+                        best.getBoundsInScreen(r);
+                        performClickSafe(best);
+                        dispatchClick(r.centerX(), r.centerY());
+                        AppLogger.i("AltTab", "Committed app switch via closest task card at " + r);
+                        for (AccessibilityNodeInfo t : tasks) t.recycle();
+                        return;
+                    }
+                    for (AccessibilityNodeInfo t : tasks) t.recycle();
+                }
+            } finally {
+                root.recycle();
+            }
         }
 
-        // 2. Hardware touch gesture tap at center
-        dispatchClick(cx, cy);
-        AppLogger.i("AltTab", "Dispatched tap gesture at screen center");
-        return true;
+        if (count == 1) {
+            performGlobalAction(GLOBAL_ACTION_RECENTS);
+            AppLogger.i("AltTab", "Committed single Alt+Tab via double-tap Recents quick-switch");
+        } else {
+            boolean nodeClicked = clickNodeAt(cx, cy);
+            if (!nodeClicked) {
+                dispatchClick(cx, cy);
+            }
+            AppLogger.i("AltTab", "Committed app switch via center click at (" + cx + ", " + cy + ")");
+        }
+    }
+
+    private void findTaskCardsRecursive(AccessibilityNodeInfo node, List<AccessibilityNodeInfo> out, int screenW, int screenH) {
+        if (node == null || !node.isVisibleToUser()) return;
+        Rect r = new Rect();
+        node.getBoundsInScreen(r);
+
+        CharSequence className = node.getClassName();
+        String cls = (className != null) ? className.toString() : "";
+        String resId = node.getViewIdResourceName();
+        String idStr = (resId != null) ? resId.toLowerCase() : "";
+
+        boolean isCard = (cls.contains("TaskView") || cls.contains("RecentsView") || idStr.contains("task_view") || idStr.contains("snapshot") || idStr.contains("card"))
+                || (node.isClickable() && r.width() >= screenW * 0.25f && r.height() >= screenH * 0.25f && r.width() < screenW * 0.98f);
+
+        if (isCard) {
+            out.add(AccessibilityNodeInfo.obtain(node));
+            return;
+        }
+
+        int count = node.getChildCount();
+        for (int i = 0; i < count; i++) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child != null) {
+                findTaskCardsRecursive(child, out, screenW, screenH);
+                child.recycle();
+            }
+        }
     }
 }
