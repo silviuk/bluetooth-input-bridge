@@ -34,6 +34,10 @@ public class InputAccessibilityService extends AccessibilityService {
     private int mCachedNodeWindowId = -1;
     private long mLastKeyTypeTime = 0;
 
+    // Anchor-based text selection tracking (Shift + Arrows, Ctrl + Shift + Arrows)
+    private int mSelectionAnchor = -1;
+    private int mSelectionCaret = -1;
+
     // UI Element Tab navigation focus tracking
     private AccessibilityNodeInfo mTabActiveNode = null;
 
@@ -74,6 +78,8 @@ public class InputAccessibilityService extends AccessibilityService {
             mCachedText = null;
             mCachedCursor = -1;
             mCachedNodeWindowId = -1;
+            mSelectionAnchor = -1;
+            mSelectionCaret = -1;
             if (mTabActiveNode != null) {
                 mTabActiveNode.recycle();
                 mTabActiveNode = null;
@@ -408,154 +414,196 @@ public class InputAccessibilityService extends AccessibilityService {
             if (isCtrl && isShift && settings.isCtrlShortcutsEnabled()) {
                 // Ctrl + Shift + Left Arrow (Select Word Backward)
                 if (androidKeycode == 21 && current != null) {
-                    int prevWord = findPrevWordBoundary(current, selStart);
-                    setSelectionRange(focused, prevWord, selEnd);
+                    if (mSelectionAnchor < 0) {
+                        mSelectionAnchor = Math.max(selStart, selEnd);
+                        mSelectionCaret = Math.min(selStart, selEnd);
+                    }
+                    mSelectionCaret = findPrevWordBoundary(current, mSelectionCaret);
+                    setSelectionRange(focused, Math.min(mSelectionAnchor, mSelectionCaret), Math.max(mSelectionAnchor, mSelectionCaret));
                     return;
                 }
                 // Ctrl + Shift + Right Arrow (Select Word Forward)
                 if (androidKeycode == 22 && current != null) {
-                    int nextWord = findNextWordBoundary(current, selEnd);
-                    setSelectionRange(focused, selStart, nextWord);
+                    if (mSelectionAnchor < 0) {
+                        mSelectionAnchor = Math.min(selStart, selEnd);
+                        mSelectionCaret = Math.max(selStart, selEnd);
+                    }
+                    mSelectionCaret = findNextWordBoundary(current, mSelectionCaret);
+                    setSelectionRange(focused, Math.min(mSelectionAnchor, mSelectionCaret), Math.max(mSelectionAnchor, mSelectionCaret));
                     return;
                 }
                 // Ctrl + Shift + Home (Select to Start of Document)
                 if (androidKeycode == 122) {
-                    setSelectionRange(focused, 0, selEnd);
+                    if (mSelectionAnchor < 0) {
+                        mSelectionAnchor = Math.max(selStart, selEnd);
+                    }
+                    mSelectionCaret = 0;
+                    setSelectionRange(focused, 0, mSelectionAnchor);
                     return;
                 }
                 // Ctrl + Shift + End (Select to End of Document)
                 if (androidKeycode == 123) {
-                    setSelectionRange(focused, selStart, len);
+                    if (mSelectionAnchor < 0) {
+                        mSelectionAnchor = Math.min(selStart, selEnd);
+                    }
+                    mSelectionCaret = len;
+                    setSelectionRange(focused, mSelectionAnchor, len);
                     return;
                 }
             }
 
             // ================= 2. WINDOWS CTRL SHORTCUTS =================
-            if (isCtrl && settings.isCtrlShortcutsEnabled()) {
-                // Ctrl + A (Select All)
-                if (androidKeycode == 29) { // KEYCODE_A
-                    setSelectionRange(focused, 0, len);
-                    AppLogger.d("Accessibility", "Executed Ctrl+A (Select All)");
-                    return;
-                }
-                // Ctrl + C (Copy) or Ctrl + Insert
-                if (androidKeycode == 31 || androidKeycode == 124) { // KEYCODE_C or KEYCODE_INSERT
-                    int min = Math.min(selStart, selEnd);
-                    int max = Math.max(selStart, selEnd);
-                    String textToCopy = "";
-                    if (min != max && current != null) {
-                        textToCopy = current.subSequence(min, max).toString();
-                    } else if (current != null) {
-                        textToCopy = current.toString();
+            if (isCtrl) {
+                if (settings.isCtrlShortcutsEnabled()) {
+                    // Ctrl + A (Select All)
+                    if (androidKeycode == 29) { // KEYCODE_A
+                        mSelectionAnchor = 0;
+                        mSelectionCaret = len;
+                        setSelectionRange(focused, 0, len);
+                        AppLogger.d("Accessibility", "Executed Ctrl+A (Select All)");
+                        return;
                     }
-                    if (!textToCopy.isEmpty()) {
-                        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                        if (cm != null) {
-                            cm.setPrimaryClip(ClipData.newPlainText("text", textToCopy));
+                    // Ctrl + C (Copy) or Ctrl + Insert
+                    if (androidKeycode == 31 || androidKeycode == 124) { // KEYCODE_C or KEYCODE_INSERT
+                        int min = Math.min(selStart, selEnd);
+                        int max = Math.max(selStart, selEnd);
+                        String textToCopy = "";
+                        if (min != max && current != null) {
+                            textToCopy = current.subSequence(min, max).toString();
+                        } else if (current != null) {
+                            textToCopy = current.toString();
                         }
+                        if (!textToCopy.isEmpty()) {
+                            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                            if (cm != null) {
+                                cm.setPrimaryClip(ClipData.newPlainText("text", textToCopy));
+                            }
+                        }
+                        focused.performAction(AccessibilityNodeInfo.ACTION_COPY);
+                        AppLogger.d("Accessibility", "Executed Ctrl+C (Copy)");
+                        return;
                     }
-                    focused.performAction(AccessibilityNodeInfo.ACTION_COPY);
-                    AppLogger.d("Accessibility", "Executed Ctrl+C (Copy)");
-                    return;
-                }
-                // Ctrl + X (Cut)
-                if (androidKeycode == 52) { // KEYCODE_X
-                    int min = Math.min(selStart, selEnd);
-                    int max = Math.max(selStart, selEnd);
-                    if (min != max && current != null) {
-                        String textToCut = current.subSequence(min, max).toString();
-                        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                        if (cm != null) {
-                            cm.setPrimaryClip(ClipData.newPlainText("text", textToCut));
+                    // Ctrl + X (Cut)
+                    if (androidKeycode == 52) { // KEYCODE_X
+                        int min = Math.min(selStart, selEnd);
+                        int max = Math.max(selStart, selEnd);
+                        if (min != max && current != null) {
+                            String textToCut = current.subSequence(min, max).toString();
+                            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                            if (cm != null) {
+                                cm.setPrimaryClip(ClipData.newPlainText("text", textToCut));
+                            }
+                            boolean cutOk = focused.performAction(AccessibilityNodeInfo.ACTION_CUT);
+                            if (!cutOk) {
+                                StringBuilder sb = new StringBuilder(current);
+                                sb.delete(min, max);
+                                applyTextAndSelection(focused, sb.toString(), min);
+                            } else {
+                                mCachedText = null;
+                            }
+                            mSelectionAnchor = -1;
+                            mSelectionCaret = -1;
+                            AppLogger.d("Accessibility", "Executed Ctrl+X (Cut)");
                         }
-                        boolean cutOk = focused.performAction(AccessibilityNodeInfo.ACTION_CUT);
-                        if (!cutOk) {
-                            StringBuilder sb = new StringBuilder(current);
-                            sb.delete(min, max);
-                            applyTextAndSelection(focused, sb.toString(), min);
+                        return;
+                    }
+                    // Ctrl + V (Paste)
+                    if (androidKeycode == 50) { // KEYCODE_V
+                        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        String clipText = "";
+                        if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip().getItemCount() > 0) {
+                            CharSequence text = cm.getPrimaryClip().getItemAt(0).getText();
+                            if (text != null) clipText = text.toString();
+                        }
+                        boolean pasteOk = focused.performAction(AccessibilityNodeInfo.ACTION_PASTE);
+                        if (!pasteOk && !clipText.isEmpty()) {
+                            StringBuilder sb = new StringBuilder(current != null ? current : "");
+                            int min = Math.min(selStart, selEnd);
+                            int max = Math.max(selStart, selEnd);
+                            sb.replace(min, max, clipText);
+                            int newCursor = min + clipText.length();
+                            applyTextAndSelection(focused, sb.toString(), newCursor);
                         } else {
                             mCachedText = null;
                         }
-                        AppLogger.d("Accessibility", "Executed Ctrl+X (Cut)");
+                        mSelectionAnchor = -1;
+                        mSelectionCaret = -1;
+                        AppLogger.d("Accessibility", "Executed Ctrl+V (Paste)");
+                        return;
                     }
-                    return;
-                }
-                // Ctrl + V (Paste)
-                if (androidKeycode == 50) { // KEYCODE_V
-                    ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                    String clipText = "";
-                    if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip().getItemCount() > 0) {
-                        CharSequence text = cm.getPrimaryClip().getItemAt(0).getText();
-                        if (text != null) clipText = text.toString();
-                    }
-                    boolean pasteOk = focused.performAction(AccessibilityNodeInfo.ACTION_PASTE);
-                    if (!pasteOk && !clipText.isEmpty()) {
-                        StringBuilder sb = new StringBuilder(current != null ? current : "");
-                        int min = Math.min(selStart, selEnd);
-                        int max = Math.max(selStart, selEnd);
-                        sb.replace(min, max, clipText);
-                        int newCursor = min + clipText.length();
-                        applyTextAndSelection(focused, sb.toString(), newCursor);
-                    } else {
+                    // Ctrl + Z (Undo)
+                    if (androidKeycode == 54) { // KEYCODE_Z
+                        focused.performAction(android.R.id.undo);
                         mCachedText = null;
+                        mSelectionAnchor = -1;
+                        mSelectionCaret = -1;
+                        AppLogger.d("Accessibility", "Executed Ctrl+Z (Undo)");
+                        return;
                     }
-                    AppLogger.d("Accessibility", "Executed Ctrl+V (Paste)");
-                    return;
+                    // Ctrl + Y (Redo)
+                    if (androidKeycode == 53) { // KEYCODE_Y
+                        focused.performAction(android.R.id.redo);
+                        mCachedText = null;
+                        mSelectionAnchor = -1;
+                        mSelectionCaret = -1;
+                        AppLogger.d("Accessibility", "Executed Ctrl+Y (Redo)");
+                        return;
+                    }
+                    // Ctrl + Home (Jump to Start of Document)
+                    if (androidKeycode == 122) {
+                        mSelectionAnchor = -1;
+                        mSelectionCaret = -1;
+                        setCursorPosition(focused, 0);
+                        return;
+                    }
+                    // Ctrl + End (Jump to End of Document)
+                    if (androidKeycode == 123) {
+                        mSelectionAnchor = -1;
+                        mSelectionCaret = -1;
+                        setCursorPosition(focused, len);
+                        return;
+                    }
+                    // Ctrl + Backspace (Delete Word Backward)
+                    if (androidKeycode == 67 && current != null && selStart > 0) {
+                        int prevWord = findPrevWordBoundary(current, selStart);
+                        StringBuilder sb = new StringBuilder(current);
+                        sb.delete(prevWord, selStart);
+                        applyTextAndSelection(focused, sb.toString(), prevWord);
+                        mSelectionAnchor = -1;
+                        mSelectionCaret = -1;
+                        AppLogger.d("Accessibility", "Executed Ctrl+Backspace (Delete Word Backward)");
+                        return;
+                    }
+                    // Ctrl + Delete (Delete Word Forward)
+                    if (androidKeycode == 112 && current != null && selStart < len) {
+                        int nextWord = findNextWordBoundary(current, selStart);
+                        StringBuilder sb = new StringBuilder(current);
+                        sb.delete(selStart, nextWord);
+                        applyTextAndSelection(focused, sb.toString(), selStart);
+                        mSelectionAnchor = -1;
+                        mSelectionCaret = -1;
+                        AppLogger.d("Accessibility", "Executed Ctrl+Delete (Delete Word Forward)");
+                        return;
+                    }
+                    // Ctrl + Left (Jump Word Backward)
+                    if (androidKeycode == 21 && current != null) {
+                        int prevWord = findPrevWordBoundary(current, selStart);
+                        mSelectionAnchor = -1;
+                        mSelectionCaret = -1;
+                        setCursorPosition(focused, prevWord);
+                        return;
+                    }
+                    // Ctrl + Right (Jump Word Forward)
+                    if (androidKeycode == 22 && current != null) {
+                        int nextWord = findNextWordBoundary(current, selStart);
+                        mSelectionAnchor = -1;
+                        mSelectionCaret = -1;
+                        setCursorPosition(focused, nextWord);
+                        return;
+                    }
                 }
-                // Ctrl + Z (Undo)
-                if (androidKeycode == 54) { // KEYCODE_Z
-                    focused.performAction(android.R.id.undo);
-                    mCachedText = null;
-                    AppLogger.d("Accessibility", "Executed Ctrl+Z (Undo)");
-                    return;
-                }
-                // Ctrl + Y (Redo)
-                if (androidKeycode == 53) { // KEYCODE_Y
-                    focused.performAction(android.R.id.redo);
-                    mCachedText = null;
-                    AppLogger.d("Accessibility", "Executed Ctrl+Y (Redo)");
-                    return;
-                }
-                // Ctrl + Home (Jump to Start of Document)
-                if (androidKeycode == 122) {
-                    setCursorPosition(focused, 0);
-                    return;
-                }
-                // Ctrl + End (Jump to End of Document)
-                if (androidKeycode == 123) {
-                    setCursorPosition(focused, len);
-                    return;
-                }
-                // Ctrl + Backspace (Delete Word Backward)
-                if (androidKeycode == 67 && current != null && selStart > 0) {
-                    int prevWord = findPrevWordBoundary(current, selStart);
-                    StringBuilder sb = new StringBuilder(current);
-                    sb.delete(prevWord, selStart);
-                    applyTextAndSelection(focused, sb.toString(), prevWord);
-                    AppLogger.d("Accessibility", "Executed Ctrl+Backspace (Delete Word Backward)");
-                    return;
-                }
-                // Ctrl + Delete (Delete Word Forward)
-                if (androidKeycode == 112 && current != null && selStart < len) {
-                    int nextWord = findNextWordBoundary(current, selStart);
-                    StringBuilder sb = new StringBuilder(current);
-                    sb.delete(selStart, nextWord);
-                    applyTextAndSelection(focused, sb.toString(), selStart);
-                    AppLogger.d("Accessibility", "Executed Ctrl+Delete (Delete Word Forward)");
-                    return;
-                }
-                // Ctrl + Left (Jump Word Backward)
-                if (androidKeycode == 21 && current != null) {
-                    int prevWord = findPrevWordBoundary(current, selStart);
-                    setCursorPosition(focused, prevWord);
-                    return;
-                }
-                // Ctrl + Right (Jump Word Forward)
-                if (androidKeycode == 22 && current != null) {
-                    int nextWord = findNextWordBoundary(current, selStart);
-                    setCursorPosition(focused, nextWord);
-                    return;
-                }
+                // Suppress any other Ctrl key combination from typing characters
+                return;
             }
 
             // ================= 3. SHIFT + NAVIGATION (TEXT SELECTION) =================
@@ -575,6 +623,8 @@ public class InputAccessibilityService extends AccessibilityService {
                         sb.delete(min, max);
                         applyTextAndSelection(focused, sb.toString(), min);
                     }
+                    mSelectionAnchor = -1;
+                    mSelectionCaret = -1;
                     return;
                 }
                 // Shift + Insert (Windows Paste shortcut)
@@ -593,46 +643,77 @@ public class InputAccessibilityService extends AccessibilityService {
                         int newCursor = min + clipText.length();
                         applyTextAndSelection(focused, sb.toString(), newCursor);
                     }
+                    mSelectionAnchor = -1;
+                    mSelectionCaret = -1;
                     return;
                 }
                 // Shift + Left Arrow
                 if (androidKeycode == 21) {
-                    int newStart = Math.max(0, selStart - 1);
-                    setSelectionRange(focused, newStart, selEnd);
+                    if (mSelectionAnchor < 0) {
+                        mSelectionAnchor = Math.max(selStart, selEnd);
+                        mSelectionCaret = Math.min(selStart, selEnd);
+                    }
+                    mSelectionCaret = Math.max(0, mSelectionCaret - 1);
+                    setSelectionRange(focused, Math.min(mSelectionAnchor, mSelectionCaret), Math.max(mSelectionAnchor, mSelectionCaret));
                     return;
                 }
                 // Shift + Right Arrow
                 if (androidKeycode == 22) {
-                    int newEnd = Math.min(len, selEnd + 1);
-                    setSelectionRange(focused, selStart, newEnd);
+                    if (mSelectionAnchor < 0) {
+                        mSelectionAnchor = Math.min(selStart, selEnd);
+                        mSelectionCaret = Math.max(selStart, selEnd);
+                    }
+                    mSelectionCaret = Math.min(len, mSelectionCaret + 1);
+                    setSelectionRange(focused, Math.min(mSelectionAnchor, mSelectionCaret), Math.max(mSelectionAnchor, mSelectionCaret));
                     return;
                 }
                 // Shift + Up Arrow
                 if (androidKeycode == 19 && current != null) {
-                    int newStart = moveLineUp(current, selStart);
-                    setSelectionRange(focused, newStart, selEnd);
+                    if (mSelectionAnchor < 0) {
+                        mSelectionAnchor = Math.max(selStart, selEnd);
+                        mSelectionCaret = Math.min(selStart, selEnd);
+                    }
+                    mSelectionCaret = moveLineUp(current, mSelectionCaret);
+                    setSelectionRange(focused, Math.min(mSelectionAnchor, mSelectionCaret), Math.max(mSelectionAnchor, mSelectionCaret));
                     return;
                 }
                 // Shift + Down Arrow
                 if (androidKeycode == 20 && current != null) {
-                    int newEnd = moveLineDown(current, selEnd);
-                    setSelectionRange(focused, selStart, newEnd);
+                    if (mSelectionAnchor < 0) {
+                        mSelectionAnchor = Math.min(selStart, selEnd);
+                        mSelectionCaret = Math.max(selStart, selEnd);
+                    }
+                    mSelectionCaret = moveLineDown(current, mSelectionCaret);
+                    setSelectionRange(focused, Math.min(mSelectionAnchor, mSelectionCaret), Math.max(mSelectionAnchor, mSelectionCaret));
                     return;
                 }
                 // Shift + Home (Select to Start of Line)
                 if (androidKeycode == 122) {
-                    int lineStart = (current != null) ? current.toString().lastIndexOf('\n', Math.max(0, selStart - 1)) + 1 : 0;
+                    if (mSelectionAnchor < 0) {
+                        mSelectionAnchor = Math.max(selStart, selEnd);
+                        mSelectionCaret = Math.min(selStart, selEnd);
+                    }
+                    int lineStart = (current != null) ? current.toString().lastIndexOf('\n', Math.max(0, mSelectionCaret - 1)) + 1 : 0;
                     if (lineStart < 0) lineStart = 0;
-                    setSelectionRange(focused, lineStart, selEnd);
+                    mSelectionCaret = lineStart;
+                    setSelectionRange(focused, Math.min(mSelectionAnchor, mSelectionCaret), Math.max(mSelectionAnchor, mSelectionCaret));
                     return;
                 }
                 // Shift + End (Select to End of Line)
                 if (androidKeycode == 123) {
-                    int lineEnd = (current != null) ? current.toString().indexOf('\n', selEnd) : len;
+                    if (mSelectionAnchor < 0) {
+                        mSelectionAnchor = Math.min(selStart, selEnd);
+                        mSelectionCaret = Math.max(selStart, selEnd);
+                    }
+                    int lineEnd = (current != null) ? current.toString().indexOf('\n', mSelectionCaret) : len;
                     if (lineEnd < 0) lineEnd = len;
-                    setSelectionRange(focused, selStart, lineEnd);
+                    mSelectionCaret = lineEnd;
+                    setSelectionRange(focused, Math.min(mSelectionAnchor, mSelectionCaret), Math.max(mSelectionAnchor, mSelectionCaret));
                     return;
                 }
+            } else {
+                mSelectionAnchor = -1;
+                mSelectionCaret = -1;
             }
 
             // ================= 4. BACKSPACE (KEYCODE_DEL = 67) =================
@@ -771,20 +852,26 @@ public class InputAccessibilityService extends AccessibilityService {
             // ================= 8. ARROW NAVIGATION =================
             // Arrow Left (21)
             if (androidKeycode == 21) {
-                int newCursor = Math.max(0, selStart - 1);
+                mSelectionAnchor = -1;
+                mSelectionCaret = -1;
+                int newCursor = (selStart != selEnd) ? Math.min(selStart, selEnd) : Math.max(0, selStart - 1);
                 setCursorPosition(focused, newCursor);
                 return;
             }
 
             // Arrow Right (22)
             if (androidKeycode == 22) {
-                int newCursor = Math.min(len, selStart + 1);
+                mSelectionAnchor = -1;
+                mSelectionCaret = -1;
+                int newCursor = (selStart != selEnd) ? Math.max(selStart, selEnd) : Math.min(len, selStart + 1);
                 setCursorPosition(focused, newCursor);
                 return;
             }
 
             // Arrow Up (19)
             if (androidKeycode == 19) {
+                mSelectionAnchor = -1;
+                mSelectionCaret = -1;
                 if (current != null && current.length() > 0) {
                     int newCursor = moveLineUp(current, selStart);
                     setCursorPosition(focused, newCursor);
@@ -794,6 +881,8 @@ public class InputAccessibilityService extends AccessibilityService {
 
             // Arrow Down (20)
             if (androidKeycode == 20) {
+                mSelectionAnchor = -1;
+                mSelectionCaret = -1;
                 if (current != null && current.length() > 0) {
                     int newCursor = moveLineDown(current, selStart);
                     setCursorPosition(focused, newCursor);
@@ -803,6 +892,8 @@ public class InputAccessibilityService extends AccessibilityService {
 
             // Home (122)
             if (androidKeycode == 122) {
+                mSelectionAnchor = -1;
+                mSelectionCaret = -1;
                 int lineStart = (current != null) ? current.toString().lastIndexOf('\n', Math.max(0, selStart - 1)) + 1 : 0;
                 if (lineStart < 0) lineStart = 0;
                 setCursorPosition(focused, lineStart);
@@ -811,6 +902,8 @@ public class InputAccessibilityService extends AccessibilityService {
 
             // End (123)
             if (androidKeycode == 123) {
+                mSelectionAnchor = -1;
+                mSelectionCaret = -1;
                 int lineEnd = (current != null) ? current.toString().indexOf('\n', selStart) : len;
                 if (lineEnd < 0) lineEnd = len;
                 setCursorPosition(focused, lineEnd);
@@ -830,7 +923,9 @@ public class InputAccessibilityService extends AccessibilityService {
             }
 
             // ================= 8. REGULAR UNICODE TYPING =================
-            if (unicodeChar != 0 && !Character.isISOControl(unicodeChar)) {
+            if (!isCtrl && unicodeChar != 0 && !Character.isISOControl(unicodeChar)) {
+                mSelectionAnchor = -1;
+                mSelectionCaret = -1;
                 String insertStr = String.valueOf(unicodeChar);
                 StringBuilder sb = new StringBuilder(current != null ? current : "");
                 int min = Math.min(selStart, selEnd);

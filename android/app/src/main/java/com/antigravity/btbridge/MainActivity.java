@@ -108,6 +108,8 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     private boolean mHasAutoRequested = false;
     private boolean mIsConnected = false;
     private boolean mIsExiting = false;
+    private int mTestSelAnchor = -1;
+    private int mTestSelCaret = -1;
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         @Override
@@ -823,13 +825,80 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
     }
 
     @Override
-    public void onKeyInputReceived(int androidKeycode, char unicodeChar) {
+    public void onKeyInputReceived(int androidKeycode, char unicodeChar, byte modifiers) {
         // Only fallback to manual text mutation if Accessibility service is not active
         if (InputAccessibilityService.getInstance() == null && mEtTestInput != null && mEtTestInput.hasFocus()) {
+            boolean isCtrl = (modifiers & Protocol.MOD_CTRL) != 0;
+            boolean isShift = (modifiers & Protocol.MOD_SHIFT) != 0;
             int start = mEtTestInput.getSelectionStart();
             int end = mEtTestInput.getSelectionEnd();
             android.text.Editable editable = mEtTestInput.getText();
             if (editable == null) return;
+
+            if (isCtrl) {
+                if (androidKeycode == 29) { // Ctrl+A (Select All)
+                    mTestSelAnchor = 0;
+                    mTestSelCaret = editable.length();
+                    mEtTestInput.selectAll();
+                    return;
+                } else if (androidKeycode == 31) { // Ctrl+C (Copy)
+                    int min = Math.min(start, end);
+                    int max = Math.max(start, end);
+                    if (min != max) {
+                        String text = editable.subSequence(min, max).toString();
+                        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("text", text));
+                    }
+                    return;
+                } else if (androidKeycode == 52) { // Ctrl+X (Cut)
+                    int min = Math.min(start, end);
+                    int max = Math.max(start, end);
+                    if (min != max) {
+                        String text = editable.subSequence(min, max).toString();
+                        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("text", text));
+                        editable.delete(min, max);
+                    }
+                    mTestSelAnchor = -1;
+                    mTestSelCaret = -1;
+                    return;
+                } else if (androidKeycode == 50) { // Ctrl+V (Paste)
+                    ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip().getItemCount() > 0) {
+                        CharSequence clip = cm.getPrimaryClip().getItemAt(0).getText();
+                        if (clip != null) {
+                            editable.replace(Math.min(start, end), Math.max(start, end), clip);
+                        }
+                    }
+                    mTestSelAnchor = -1;
+                    mTestSelCaret = -1;
+                    return;
+                }
+                return;
+            }
+
+            if (isShift) {
+                if (androidKeycode == 21) { // Shift+Left
+                    if (mTestSelAnchor < 0) {
+                        mTestSelAnchor = Math.max(start, end);
+                        mTestSelCaret = Math.min(start, end);
+                    }
+                    mTestSelCaret = Math.max(0, mTestSelCaret - 1);
+                    mEtTestInput.setSelection(Math.min(mTestSelAnchor, mTestSelCaret), Math.max(mTestSelAnchor, mTestSelCaret));
+                    return;
+                } else if (androidKeycode == 22) { // Shift+Right
+                    if (mTestSelAnchor < 0) {
+                        mTestSelAnchor = Math.min(start, end);
+                        mTestSelCaret = Math.max(start, end);
+                    }
+                    mTestSelCaret = Math.min(editable.length(), mTestSelCaret + 1);
+                    mEtTestInput.setSelection(Math.min(mTestSelAnchor, mTestSelCaret), Math.max(mTestSelAnchor, mTestSelCaret));
+                    return;
+                }
+            } else {
+                mTestSelAnchor = -1;
+                mTestSelCaret = -1;
+            }
 
             if (androidKeycode == 67) { // Backspace (KEYCODE_DEL)
                 if (start != end) {
@@ -849,7 +918,7 @@ public class MainActivity extends Activity implements BluetoothBridgeService.Sta
                 } else {
                     editable.insert(start, "\n");
                 }
-            } else if (unicodeChar != 0 && !Character.isISOControl(unicodeChar)) {
+            } else if (!isCtrl && unicodeChar != 0 && !Character.isISOControl(unicodeChar)) {
                 String str = String.valueOf(unicodeChar);
                 if (start != end) {
                     editable.replace(Math.min(start, end), Math.max(start, end), str);

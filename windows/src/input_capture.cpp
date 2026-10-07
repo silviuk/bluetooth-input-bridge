@@ -149,6 +149,7 @@ bool InputCapture::StartCapture() {
 
     m_capturing = true;
     m_recentering = true;
+    ZeroMemory(m_keyState, sizeof(m_keyState));
     SetCursorPos(m_centerPt.x, m_centerPt.y);
 
     if (m_toggleCb) {
@@ -161,6 +162,7 @@ void InputCapture::StopCapture() {
     if (!m_capturing) return;
 
     m_capturing = false;
+    ZeroMemory(m_keyState, sizeof(m_keyState));
 
     if (m_keyboardHook) {
         UnhookWindowsHookEx(m_keyboardHook);
@@ -211,59 +213,120 @@ LRESULT InputCapture::HandleKeyboardHook(int nCode, WPARAM wParam, LPARAM lParam
         return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
-    // Update key state
-    m_keyState[pKbd->vkCode] = isDown ? 0x80 : 0x00;
+    // Track key state in local table
+    if (pKbd->vkCode == VK_LSHIFT || pKbd->vkCode == VK_RSHIFT || pKbd->vkCode == VK_SHIFT) {
+        m_keyState[VK_SHIFT]  = isDown ? 0x80 : 0x00;
+        m_keyState[pKbd->vkCode & 0xFF] = isDown ? 0x80 : 0x00;
+    } else if (pKbd->vkCode == VK_LCONTROL || pKbd->vkCode == VK_RCONTROL || pKbd->vkCode == VK_CONTROL) {
+        m_keyState[VK_CONTROL] = isDown ? 0x80 : 0x00;
+        m_keyState[pKbd->vkCode & 0xFF] = isDown ? 0x80 : 0x00;
+    } else if (pKbd->vkCode == VK_LMENU || pKbd->vkCode == VK_RMENU || pKbd->vkCode == VK_MENU) {
+        m_keyState[VK_MENU]   = isDown ? 0x80 : 0x00;
+        m_keyState[pKbd->vkCode & 0xFF] = isDown ? 0x80 : 0x00;
+    } else if (pKbd->vkCode == VK_LWIN || pKbd->vkCode == VK_RWIN) {
+        m_keyState[VK_LWIN]   = isDown ? 0x80 : 0x00;
+        m_keyState[pKbd->vkCode & 0xFF] = isDown ? 0x80 : 0x00;
+    } else {
+        m_keyState[pKbd->vkCode & 0xFF] = isDown ? 0x80 : 0x00;
+    }
+
+    // Determine current state of modifiers combining internal tracking and system state
+    bool shiftDown = (m_keyState[VK_SHIFT] & 0x80) != 0 ||
+                     (m_keyState[VK_LSHIFT] & 0x80) != 0 ||
+                     (m_keyState[VK_RSHIFT] & 0x80) != 0 ||
+                     (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0 ||
+                     (GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0 ||
+                     (GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0 ||
+                     (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+
+    bool ctrlDown  = (m_keyState[VK_CONTROL] & 0x80) != 0 ||
+                     (m_keyState[VK_LCONTROL] & 0x80) != 0 ||
+                     (m_keyState[VK_RCONTROL] & 0x80) != 0 ||
+                     (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0 ||
+                     (GetAsyncKeyState(VK_LCONTROL) & 0x8000) != 0 ||
+                     (GetAsyncKeyState(VK_RCONTROL) & 0x8000) != 0 ||
+                     (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+
+    bool altDown   = (m_keyState[VK_MENU] & 0x80) != 0 ||
+                     (m_keyState[VK_LMENU] & 0x80) != 0 ||
+                     (m_keyState[VK_RMENU] & 0x80) != 0 ||
+                     (pKbd->flags & LLKHF_ALTDOWN) != 0 ||
+                     (pKbd->vkCode == VK_MENU) ||
+                     (pKbd->vkCode == VK_LMENU) ||
+                     (pKbd->vkCode == VK_RMENU) ||
+                     (GetAsyncKeyState(VK_MENU) & 0x8000) != 0 ||
+                     (GetAsyncKeyState(VK_LMENU) & 0x8000) != 0 ||
+                     (GetAsyncKeyState(VK_RMENU) & 0x8000) != 0 ||
+                     (GetKeyState(VK_MENU) & 0x8000) != 0;
+
+    bool metaDown  = (m_keyState[VK_LWIN] & 0x80) != 0 ||
+                     (m_keyState[VK_RWIN] & 0x80) != 0 ||
+                     (pKbd->vkCode == VK_LWIN) ||
+                     (pKbd->vkCode == VK_RWIN) ||
+                     (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 ||
+                     (GetAsyncKeyState(VK_RWIN) & 0x8000) != 0;
 
     // Modifiers bitmask
     uint8_t modifiers = 0;
-    if (GetAsyncKeyState(VK_SHIFT) & 0x8000)   modifiers |= KEY_MOD_SHIFT;
-    if (GetAsyncKeyState(VK_CONTROL) & 0x8000) modifiers |= KEY_MOD_CTRL;
-    if ((GetAsyncKeyState(VK_MENU) & 0x8000) || (pKbd->flags & LLKHF_ALTDOWN) || pKbd->vkCode == VK_MENU || pKbd->vkCode == VK_LMENU || pKbd->vkCode == VK_RMENU) {
-        modifiers |= KEY_MOD_ALT;
-    }
-    if ((GetAsyncKeyState(VK_LWIN) | GetAsyncKeyState(VK_RWIN)) & 0x8000) modifiers |= KEY_MOD_META;
+    if (shiftDown) modifiers |= KEY_MOD_SHIFT;
+    if (ctrlDown)  modifiers |= KEY_MOD_CTRL;
+    if (altDown)   modifiers |= KEY_MOD_ALT;
+    if (metaDown)  modifiers |= KEY_MOD_META;
 
     // Map to Android keycode
     uint16_t androidKc = WindowsVkToAndroidKeycode(pKbd->vkCode);
 
-    // Accurate keyboard state for low-level hook (low-level hooks do not share thread message queue states)
+    // Accurate keyboard state for low-level hook
     BYTE keyboardState[256] = {0};
-    if (GetAsyncKeyState(VK_SHIFT) & 0x8000)    keyboardState[VK_SHIFT]   = 0x80;
-    if (GetAsyncKeyState(VK_LSHIFT) & 0x8000)   keyboardState[VK_LSHIFT]  = 0x80;
-    if (GetAsyncKeyState(VK_RSHIFT) & 0x8000)   keyboardState[VK_RSHIFT]  = 0x80;
-    if (GetAsyncKeyState(VK_CONTROL) & 0x8000)  keyboardState[VK_CONTROL] = 0x80;
-    if (GetAsyncKeyState(VK_LCONTROL) & 0x8000) keyboardState[VK_LCONTROL]= 0x80;
-    if (GetAsyncKeyState(VK_RCONTROL) & 0x8000) keyboardState[VK_RCONTROL]= 0x80;
-    if (GetAsyncKeyState(VK_MENU) & 0x8000)     keyboardState[VK_MENU]    = 0x80;
-    if (GetAsyncKeyState(VK_LMENU) & 0x8000)    keyboardState[VK_LMENU]   = 0x80;
-    if (GetAsyncKeyState(VK_RMENU) & 0x8000)    keyboardState[VK_RMENU]   = 0x80;
-    if (GetKeyState(VK_CAPITAL) & 0x0001)     keyboardState[VK_CAPITAL] = 0x01;
-    if (GetKeyState(VK_NUMLOCK) & 0x0001)     keyboardState[VK_NUMLOCK] = 0x01;
+    if (shiftDown) {
+        keyboardState[VK_SHIFT]  = 0x80;
+        keyboardState[VK_LSHIFT] = 0x80;
+    }
+    if (ctrlDown) {
+        keyboardState[VK_CONTROL]  = 0x80;
+        keyboardState[VK_LCONTROL] = 0x80;
+    }
+    if (altDown) {
+        keyboardState[VK_MENU]  = 0x80;
+        keyboardState[VK_LMENU] = 0x80;
+    }
+    if (GetKeyState(VK_CAPITAL) & 0x0001) keyboardState[VK_CAPITAL] = 0x01;
+    if (GetKeyState(VK_NUMLOCK) & 0x0001) keyboardState[VK_NUMLOCK] = 0x01;
 
     // Try to get unicode character using active keyboard layout
     WCHAR unicodeChar = 0;
     HKL hkl = GetKeyboardLayout(0);
-    if (ToUnicodeEx(pKbd->vkCode, pKbd->scanCode, keyboardState, &unicodeChar, 1, 0, hkl) != 1) {
-        unicodeChar = 0;
-    }
 
-    // Direct fallback for keys that have fixed printable representation
-    if (unicodeChar == 0) {
-        if (pKbd->vkCode >= VK_NUMPAD0 && pKbd->vkCode <= VK_NUMPAD9) {
-            unicodeChar = L'0' + (WCHAR)(pKbd->vkCode - VK_NUMPAD0);
-        } else if (pKbd->vkCode == VK_MULTIPLY) {
-            unicodeChar = L'*';
-        } else if (pKbd->vkCode == VK_ADD) {
-            unicodeChar = L'+';
-        } else if (pKbd->vkCode == VK_SUBTRACT) {
-            unicodeChar = L'-';
-        } else if (pKbd->vkCode == VK_DECIMAL) {
-            unicodeChar = L'.';
-        } else if (pKbd->vkCode == VK_DIVIDE) {
-            unicodeChar = L'/';
-        } else if (pKbd->vkCode == VK_SPACE) {
-            unicodeChar = L' ';
+    // If Ctrl is held without Alt (not AltGr), this is a command shortcut (Ctrl+A, Ctrl+V, etc.)
+    // NEVER produce a printable unicodeChar for Ctrl shortcuts so Android does not type literal letters!
+    if (isDown && (!ctrlDown || (ctrlDown && altDown))) {
+        if (ToUnicodeEx(pKbd->vkCode, pKbd->scanCode, keyboardState, &unicodeChar, 1, 0, hkl) != 1) {
+            unicodeChar = 0;
         }
+        if (unicodeChar < 32) {
+            unicodeChar = 0; // Control character, not printable
+        }
+
+        // Direct fallback for keys that have fixed printable representation
+        if (unicodeChar == 0) {
+            if (pKbd->vkCode >= VK_NUMPAD0 && pKbd->vkCode <= VK_NUMPAD9) {
+                unicodeChar = L'0' + (WCHAR)(pKbd->vkCode - VK_NUMPAD0);
+            } else if (pKbd->vkCode == VK_MULTIPLY) {
+                unicodeChar = L'*';
+            } else if (pKbd->vkCode == VK_ADD) {
+                unicodeChar = L'+';
+            } else if (pKbd->vkCode == VK_SUBTRACT) {
+                unicodeChar = L'-';
+            } else if (pKbd->vkCode == VK_DECIMAL) {
+                unicodeChar = L'.';
+            } else if (pKbd->vkCode == VK_DIVIDE) {
+                unicodeChar = L'/';
+            } else if (pKbd->vkCode == VK_SPACE) {
+                unicodeChar = L' ';
+            }
+        }
+    } else {
+        unicodeChar = 0;
     }
 
     KeyEventPayload payload;
