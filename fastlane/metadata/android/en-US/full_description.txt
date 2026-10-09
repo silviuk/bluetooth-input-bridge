@@ -1,0 +1,15 @@
+Lapdroid turns your Windows laptop or PC keyboard, touchpad, and active stylus into a high-precision Bluetooth input controller for Android phones and tablets.
+
+NO WI-FI OR NETWORK REQUIRED:
+Operates 100% offline over direct Bluetooth RFCOMM. Your keystrokes and pointer actions never touch the internet or local Wi-Fi network.
+
+KEY FEATURES:
+• Full Keyboard Forwarding: Complete coverage for letters, numbers, F1-F12, numpad, navigation keys, and international layouts.
+• Modifier Synchronization: Synchronized Shift, Ctrl, Alt, AltGr, and CapsLock states.
+• Desktop Shortcuts: Full support for standard shortcuts like Ctrl+A (Select All), Ctrl+C (Copy), Ctrl+V (Paste), Ctrl+X (Cut), Ctrl+Z (Undo), Ctrl+Y (Redo), and word jumping/deletion.
+• Shift Text Selection: Seamlessly highlight text with Shift+Arrows and Shift+Home/End.
+• Touchpad & Pointer Emulation: Smooth custom floating cursor overlay with left, right, and middle click emulation, multi-touch gestures, and natural scroll.
+• Stylus Digitizer: Direct absolute stylus coordinates and pressure forwarding for drawing and note-taking.
+• Configurable Controls: Smart Enter key actions, Tab focus navigation, and Super key mappings.
+• Optional Direct IME: Built-in Input Method Service for terminal emulators (Termux) and gaming.
+• Zero Internet Access: Does not request the android.permission.INTERNET permission.

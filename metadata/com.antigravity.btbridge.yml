@@ -1,0 +1,48 @@
+Categories:
+  - Connectivity
+  - System
+License: MIT
+AuthorName: Silviu Vlasceanu
+AuthorEmail: 2750371+silviuk@users.noreply.github.com
+AuthorWebSite: https://github.com/silviuk
+SourceCode: https://github.com/silviuk/lapdroid
+IssueTracker: https://github.com/silviuk/lapdroid/issues
+WebSite: https://silviuk.github.io/lapdroid/
+
+AutoName: Lapdroid
+Summary: Laptop keyboard, trackpad & stylus input bridge for Android over Bluetooth
+
+Description: |-
+  Lapdroid turns your Windows laptop keyboard, touchpad, and active stylus into a
+  high-precision Bluetooth input device for Android phones and tablets.
+  
+  Unlike other remote input solutions, Lapdroid requires NO Wi-Fi, internet connection,
+  or local area network. All keyboard strokes, gestures, and mouse actions are transmitted
+  directly over Bluetooth RFCOMM with ultra-low latency.
+
+  Features:
+  * Full keyboard forwarding (letters, numbers, F1-F12, numpad, navigation)
+  * Low-level modifier synchronization (Shift, Ctrl, Alt, CapsLock)
+  * Native desktop shortcuts: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z, Ctrl+Y
+  * Shift text selection: Shift+Arrow keys and Shift+Home/End
+  * High-precision mouse trackpad navigation with custom cursor overlay
+  * Configurable Enter key, Tab key navigation, and Super/Win key actions
+  * Optional Direct Input Keyboard IME for Termux, terminal emulators, and games
+  * 100% offline: zero INTERNET permissions requested
+
+RepoType: git
+Repo: https://github.com/silviuk/lapdroid.git
+
+Builds:
+  - versionName: 0.3.0
+    versionCode: 4
+    commit: v0.3
+    subdir: android
+    build:
+      - ./build.sh
+    output: ../bin/Lapdroid.apk
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 0.3.0
+CurrentVersionCode: 4

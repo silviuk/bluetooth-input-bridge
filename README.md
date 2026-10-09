@@ -2,11 +2,34 @@
 
 Control your **Android phone** using your Windows laptop or PC keyboard and touchpad over **Bluetooth**.
 
+[![Website](https://img.shields.io/badge/Website-silviuk.github.io%2Flapdroid-blue)](https://silviuk.github.io/lapdroid/)
+[![WinGet PR](https://img.shields.io/badge/WinGet-silviuk.Lapdroid-blue)](https://github.com/microsoft/winget-pkgs/pull/449745)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Offline](https://img.shields.io/badge/Offline-100%25%20Bluetooth%20RFCOMM-success)](#)
+
+> **Official Website**: [https://silviuk.github.io/lapdroid/](https://silviuk.github.io/lapdroid/)  
 > **Offline Bluetooth Only**: Operates strictly over **Bluetooth RFCOMM**. No Wi-Fi, internet, or local area network connection is used or required.
 
 ---
 
-## 1. Architecture Overview
+## 1. Quick Install
+
+### Windows (via WinGet)
+```powershell
+winget install silviuk.Lapdroid
+```
+
+### Windows (Direct Download)
+- [**Lapdroid-Setup.exe**](https://github.com/silviuk/lapdroid/releases/download/v0.3/Lapdroid-Setup.exe) (Setup Installer)
+- [**Lapdroid.exe**](https://github.com/silviuk/lapdroid/releases/download/v0.3/Lapdroid.exe) (Portable Executable)
+
+### Android
+- [**Lapdroid.apk**](https://github.com/silviuk/lapdroid/releases/download/v0.3/Lapdroid.apk) (Android APK)
+- [**Lapdroid.aab**](https://github.com/silviuk/lapdroid/releases/download/v0.3/Lapdroid.aab) (Android App Bundle for Play Store)
+
+---
+
+## 2. Architecture Overview
 
 ### Why Lapdroid?
 Under Windows 10/11, the native Windows Bluetooth driver stack (`BthModem.sys` / `bthprops.cpl`) only permits Windows to operate as a **Bluetooth HID Host** (receiver), not as a **HID Peripheral** (keyboard/mouse). Furthermore, the Windows Bluetooth Low Energy (BLE) GATT Server API strictly restricts advertising the standard HID over GATT Profile (HOGP, UUID `0x1812`).
@@ -28,17 +51,19 @@ Under Windows 10/11, the native Windows Bluetooth driver stack (`BthModem.sys` /
 
 ---
 
-## 2. Release Packages (v0.2.0)
+## 3. Release Packages (v0.3.0)
 
-Pre-built release packages are available in [`releases/v0.2/`](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2) and on [GitHub Releases](https://github.com/silviuk/lapdroid/releases):
+Pre-built release packages are available in [`releases/v0.3/`](https://github.com/silviuk/lapdroid/releases/tag/v0.3) and on [GitHub Releases](https://github.com/silviuk/lapdroid/releases):
 
 | File | Type | Size | Description |
 | :--- | :--- | :--- | :--- |
-| [**`Lapdroid-Setup.exe`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid-Setup.exe) | Windows Setup Installer | ~503 KB | Professional installer for Windows: installs to Program Files, creates Start Menu & Desktop shortcuts, and includes clean uninstaller. |
-| [**`Lapdroid.exe`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid.exe) | Standalone Executable | ~1.1 MB | Portable, fully self-contained 64-bit native Windows executable. Zero external DLL or runtime dependencies. |
-| [**`Lapdroid.apk`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid.apk) | Android Application (APK) | ~29 KB | Signed APK with modern Android 14 (API 34) support, permission guards, and zero-crash initialization. |
-| [**`Lapdroid-v0.2.zip`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid-v0.2.zip) | Complete Release Bundle | ~813 KB | ZIP archive containing Windows installer, portable executable, Android APK, and checksums. |
-| [**`SHA256SUMS.txt`**](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/SHA256SUMS.txt) | Verification Checksums | ~1 KB | SHA-256 cryptographic hashes for integrity verification. |
+| [**`Lapdroid-Setup.exe`**](https://github.com/silviuk/lapdroid/releases/download/v0.3/Lapdroid-Setup.exe) | Windows Setup Installer | ~830 KB | Professional NSIS installer: installs to Program Files, creates Start Menu & Desktop shortcuts, clean uninstaller. |
+| [**`Lapdroid.exe`**](https://github.com/silviuk/lapdroid/releases/download/v0.3/Lapdroid.exe) | Standalone Executable | ~1.1 MB | Portable, fully self-contained 64-bit native Windows executable. Zero external runtime dependencies. |
+| [**`Lapdroid.apk`**](https://github.com/silviuk/lapdroid/releases/download/v0.3/Lapdroid.apk) | Android Application (APK) | ~247 KB | Signed release APK with modern Android 14 (API 34) support, offline Bluetooth RFCOMM only. |
+| [**`Lapdroid.aab`**](https://github.com/silviuk/lapdroid/releases/download/v0.3/Lapdroid.aab) | Android App Bundle | ~254 KB | Official signed Android App Bundle ready for Google Play Store upload. |
+| [**`Lapdroid-v0.3.zip`**](https://github.com/silviuk/lapdroid/releases/download/v0.3/Lapdroid-v0.3.zip) | Complete Release Bundle | ~1.4 MB | Complete release ZIP bundle containing Windows installer, portable EXE, Android APK, and checksums. |
+| [**`SHA256SUMS.txt`**](https://github.com/silviuk/lapdroid/releases/download/v0.3/SHA256SUMS.txt) | Verification Checksums | ~327 B | SHA-256 cryptographic hashes for integrity verification. |
+
 
 ---
 
@@ -81,13 +106,13 @@ Pre-built release packages are available in [`releases/v0.2/`](file:///root/.gem
 2. Pair your Android phone with your Windows PC.
 
 ### Step 2: Install & Open Lapdroid on Android
-1. Download and install [`Lapdroid.apk`](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid.apk).
+1. Download and install [`Lapdroid.apk`](https://github.com/silviuk/lapdroid/releases/download/v0.3/Lapdroid.apk).
 2. Open the app: it will immediately prompt for Bluetooth permission.
 3. Tap the prompts to enable **Floating Overlay** and **Accessibility Service**.
 4. The status will display: **"Listening for Windows PC..."**.
 
 ### Step 3: Run Lapdroid on Windows
-1. Run [`Lapdroid-Setup.exe`](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid-Setup.exe) or [`Lapdroid.exe`](file:///root/.gemini/antigravity-cli/scratch/bluetooth-input-bridge/releases/v0.2/Lapdroid.exe).
+1. Install via WinGet (`winget install silviuk.Lapdroid`) or download [`Lapdroid-Setup.exe`](https://github.com/silviuk/lapdroid/releases/download/v0.3/Lapdroid-Setup.exe).
 2. Click **Start Bluetooth Server**.
 3. Status changes to **"Connected to Android"**.
 
@@ -107,6 +132,17 @@ Pre-built release packages are available in [`releases/v0.2/`](file:///root/.gem
 # Or build Windows only:
 make -C windows
 
-# Or build Android APK only:
+# Or build Android APK & AAB only:
 ./android/build.sh
 ```
+
+---
+
+## 6. App Stores & Distribution
+
+- **Official Website**: [https://silviuk.github.io/lapdroid/](https://silviuk.github.io/lapdroid/)
+- **WinGet**: [PR #449745](https://github.com/microsoft/winget-pkgs/pull/449745) (`winget install silviuk.Lapdroid`)
+- **F-Droid**: Recipe configured at [`metadata/com.antigravity.btbridge.yml`](metadata/com.antigravity.btbridge.yml) & [F-Droid Guide](docs/store-submissions/FDROID_SUBMISSION_GUIDE.md)
+- **Google Play Store**: Bundle ready at [`bin/Lapdroid.aab`](https://github.com/silviuk/lapdroid/releases/download/v0.3/Lapdroid.aab) & [Play Store Guide](docs/store-submissions/GOOGLE_PLAY_STORE_GUIDE.md)
+- **Microsoft Store**: [Windows Store Guide](docs/store-submissions/WINDOWS_STORE_GUIDE.md)
+

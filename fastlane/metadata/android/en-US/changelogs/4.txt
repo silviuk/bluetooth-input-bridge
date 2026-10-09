@@ -1,0 +1,8 @@
+Lapdroid v0.3.0:
+- Full keyboard keycode coverage (A-Z, 0-9, F1-F12, full numpad, navigation).
+- Synchronized modifier states (Shift, AltGr, Ctrl, Caps Lock).
+- Desktop keyboard shortcuts (Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z, Ctrl+Y, word jumps/deletion).
+- Shift text selection (Shift+Arrows, Shift+Home/End).
+- Configurable Enter and Tab modes in settings.
+- Optional direct input IME for Termux and games.
+- Live diagnostic logging.

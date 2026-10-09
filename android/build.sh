@@ -74,3 +74,42 @@ rm -f "${BIN_DIR}/Lapdroid-unsigned.apk"
 
 echo "=== SUCCESS! Lapdroid APK generated: ${BIN_DIR}/Lapdroid.apk ==="
 ls -lh "${BIN_DIR}/Lapdroid.apk"
+
+echo "=== 8. Building Android App Bundle (AAB) with Bundletool ==="
+AAB_DIR="${BUILD_DIR}/aab_module"
+rm -rf "${AAB_DIR}"
+mkdir -p "${AAB_DIR}/manifest" "${AAB_DIR}/dex" "${AAB_DIR}/res"
+
+# Generate proto resource apk
+"${SDK_BUILD_TOOLS}/aapt2" link \
+    --proto-format \
+    -I "${ANDROID_JAR}" \
+    --manifest "${BASE_DIR}/app/src/main/AndroidManifest.xml" \
+    --min-sdk-version 26 \
+    --target-sdk-version 34 \
+    --version-code 4 \
+    --version-name "0.3.0" \
+    -o "${BUILD_DIR}/proto_res.apk" \
+    "${BUILD_DIR}/compiled_res.zip"
+
+rm -rf "${BUILD_DIR}/proto_extracted"
+unzip -q "${BUILD_DIR}/proto_res.apk" -d "${BUILD_DIR}/proto_extracted"
+cp "${BUILD_DIR}/proto_extracted/AndroidManifest.xml" "${AAB_DIR}/manifest/"
+[ -f "${BUILD_DIR}/proto_extracted/resources.pb" ] && cp "${BUILD_DIR}/proto_extracted/resources.pb" "${AAB_DIR}/"
+[ -d "${BUILD_DIR}/proto_extracted/res" ] && cp -r "${BUILD_DIR}/proto_extracted/res" "${AAB_DIR}/"
+cp "${BUILD_DIR}/classes.dex" "${AAB_DIR}/dex/"
+
+(cd "${AAB_DIR}" && zip -q -r "${BUILD_DIR}/base.zip" .)
+
+if [ -f "/opt/bundletool/bundletool.jar" ]; then
+    java -jar /opt/bundletool/bundletool.jar build-bundle \
+        --modules="${BUILD_DIR}/base.zip" \
+        --output="${BIN_DIR}/Lapdroid.aab"
+    jarsigner -keystore "${KEYSTORE}" \
+        -storepass lapdroidpass \
+        -keypass lapdroidpass \
+        "${BIN_DIR}/Lapdroid.aab" lapdroidkey
+    echo "=== SUCCESS! Lapdroid AAB generated: ${BIN_DIR}/Lapdroid.aab ==="
+    ls -lh "${BIN_DIR}/Lapdroid.aab"
+fi
+
