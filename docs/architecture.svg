@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 380" width="860" height="380">
+  <defs>
+    <linearGradient id="cardGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#182030"/>
+      <stop offset="100%" stop-color="#101520"/>
+    </linearGradient>
+    <linearGradient id="winGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0078d4"/>
+      <stop offset="100%" stop-color="#005a9e"/>
+    </linearGradient>
+    <linearGradient id="andGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#28b463"/>
+      <stop offset="100%" stop-color="#1d8348"/>
+    </linearGradient>
+    <linearGradient id="btChannelGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0078d4"/>
+      <stop offset="50%" stop-color="#00aaff"/>
+      <stop offset="100%" stop-color="#3ddc84"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="860" height="380" rx="16" fill="#0d1117" stroke="#30363d" stroke-width="2"/>
+
+  <!-- Left: Windows Host Card -->
+  <g filter="url(#shadow)">
+    <rect x="30" y="35" width="280" height="310" rx="12" fill="url(#cardGradDark)" stroke="#2b3b55" stroke-width="2"/>
+    <rect x="30" y="35" width="280" height="48" rx="12" fill="url(#winGrad)"/>
+    <rect x="30" y="70" width="280" height="13" fill="url(#winGrad)"/>
+    <text x="50" y="67" fill="#ffffff" font-family="-apple-system, Segoe UI, sans-serif" font-size="16" font-weight="700">🪟 Windows PC (Host / Client)</text>
+
+    <!-- Component Blocks -->
+    <rect x="48" y="100" width="244" height="44" rx="6" fill="#1f283d" stroke="#384968" stroke-width="1.5"/>
+    <text x="62" y="127" fill="#e6edf3" font-family="-apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600">⌨️ WH_KEYBOARD_LL Hook</text>
+
+    <rect x="48" y="154" width="244" height="44" rx="6" fill="#1f283d" stroke="#384968" stroke-width="1.5"/>
+    <text x="62" y="181" fill="#e6edf3" font-family="-apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600">🖱️ WH_MOUSE_LL / 3x Sensitivity</text>
+
+    <rect x="48" y="208" width="244" height="44" rx="6" fill="#1f283d" stroke="#384968" stroke-width="1.5"/>
+    <text x="62" y="235" fill="#e6edf3" font-family="-apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600">🖊️ Windows Ink Stylus Injector</text>
+
+    <rect x="48" y="262" width="244" height="60" rx="6" fill="#0d233a" stroke="#0078d4" stroke-width="1.5"/>
+    <text x="62" y="286" fill="#58a6ff" font-family="-apple-system, Segoe UI, sans-serif" font-size="13" font-weight="700">📶 WinSock Bluetooth (BTH)</text>
+    <text x="62" y="306" fill="#8b949e" font-family="-apple-system, Segoe UI, sans-serif" font-size="11">RFCOMM SPP Protocol (Port 1)</text>
+  </g>
+
+  <!-- Middle: Bluetooth Bridge Channel -->
+  <g>
+    <!-- Channel Pill -->
+    <rect x="330" y="130" width="200" height="120" rx="14" fill="#131d2e" stroke="url(#btChannelGrad)" stroke-width="2.5"/>
+    
+    <circle cx="430" cy="165" r="22" fill="#0b2447" stroke="#0099ff" stroke-width="2"/>
+    <path d="M 427,152 L 427,178 L 438,169 L 422,158 L 438,158 L 427,152 L 438,169 L 427,175" 
+          fill="none" stroke="#00aaff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <text x="430" y="208" text-anchor="middle" fill="#58a6ff" font-family="-apple-system, Segoe UI, sans-serif" font-size="13" font-weight="700">Bluetooth RFCOMM</text>
+    <text x="430" y="226" text-anchor="middle" fill="#7ee787" font-family="-apple-system, Segoe UI, sans-serif" font-size="11.5" font-weight="600">100% Offline • Zero LAN</text>
+    <text x="430" y="242" text-anchor="middle" fill="#8b949e" font-family="-apple-system, Segoe UI, sans-serif" font-size="10.5">&lt; 10ms Latency</text>
+
+    <!-- Connectors with animated/dashed lines -->
+    <line x1="310" y1="190" x2="330" y2="190" stroke="#0078d4" stroke-width="3" stroke-dasharray="4 4"/>
+    <polygon points="328,186 336,190 328,194" fill="#0078d4"/>
+
+    <line x1="530" y1="190" x2="550" y2="190" stroke="#3ddc84" stroke-width="3" stroke-dasharray="4 4"/>
+    <polygon points="548,186 556,190 548,194" fill="#3ddc84"/>
+  </g>
+
+  <!-- Right: Android Device Card -->
+  <g filter="url(#shadow)">
+    <rect x="550" y="35" width="280" height="310" rx="12" fill="url(#cardGradDark)" stroke="#1e3a2b" stroke-width="2"/>
+    <rect x="550" y="35" width="280" height="48" rx="12" fill="url(#andGrad)"/>
+    <rect x="550" y="70" width="280" height="13" fill="url(#andGrad)"/>
+    <text x="570" y="67" fill="#ffffff" font-family="-apple-system, Segoe UI, sans-serif" font-size="16" font-weight="700">📱 Android (S24 Ultra / Tablets)</text>
+
+    <!-- Component Blocks -->
+    <rect x="568" y="100" width="244" height="44" rx="6" fill="#192e22" stroke="#2a543b" stroke-width="1.5"/>
+    <text x="582" y="127" fill="#e6edf3" font-family="-apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600">⌨️ Lapdroid Direct Input IME</text>
+
+    <rect x="568" y="154" width="244" height="44" rx="6" fill="#192e22" stroke="#2a543b" stroke-width="1.5"/>
+    <text x="582" y="181" fill="#e6edf3" font-family="-apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600">♿ Accessibility Event Injection</text>
+
+    <rect x="568" y="208" width="244" height="44" rx="6" fill="#192e22" stroke="#2a543b" stroke-width="1.5"/>
+    <text x="582" y="235" fill="#e6edf3" font-family="-apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600">🎯 Window Overlay Cursor Engine</text>
+
+    <rect x="568" y="262" width="244" height="60" rx="6" fill="#11291b" stroke="#28b463" stroke-width="1.5"/>
+    <text x="582" y="286" fill="#3ddc84" font-family="-apple-system, Segoe UI, sans-serif" font-size="13" font-weight="700">📶 Android BluetoothSocket</text>
+    <text x="582" y="306" fill="#8b949e" font-family="-apple-system, Segoe UI, sans-serif" font-size="11">Standard SPP UUID Listener/Client</text>
+  </g>
+</svg>
